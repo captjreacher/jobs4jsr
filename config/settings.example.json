@@ -1,0 +1,106 @@
+{
+  "centre": [
+    -36.8485,
+    174.7633
+  ],
+  "centre_description": "Fixed Auckland CBD reference point near Queen Street (approximate central-city point, not a street-address geocode)",
+  "request_delay": 1,
+  "sources": [
+    {
+      "name": "Star Group direct employer",
+      "sitemap": "https://careers.stargroup.nz/sitemap.xml"
+    }
+  ],
+  "venues": {
+    "The Lula Inn": {
+      "location": "Viaduct Harbour",
+      "coordinates": [
+        -36.8439,
+        174.7622
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Rosie\u2019s Red-Hot Cantina": {
+      "location": "Viaduct Harbour",
+      "coordinates": [
+        -36.8436,
+        174.761
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Rosie's Red-Hot Cantina": {
+      "location": "Viaduct Harbour",
+      "coordinates": [
+        -36.8436,
+        174.761
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Sweat Shop Brew Kitchen": {
+      "location": "Freemans Bay",
+      "coordinates": [
+        -36.8474,
+        174.755
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Regatta": {
+      "location": "Takapuna",
+      "coordinates": [
+        -36.7873,
+        174.7749
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "The Postman's Leg": {
+      "location": "Glenfield",
+      "coordinates": [
+        -36.7806,
+        174.7231
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "The Flying Moa": {
+      "location": "Mount Wellington",
+      "coordinates": [
+        -36.897,
+        174.831
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Moretons": {
+      "location": "St Heliers",
+      "coordinates": [
+        -36.8506,
+        174.8584
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Goode Brothers": {
+      "location": "New Lynn",
+      "coordinates": [
+        -36.907,
+        174.685
+      ],
+      "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
+    },
+    "Rosie's Red-Hot Cantina - Auckland Viaduct": {
+      "employer": "Rosie's Red-Hot Cantina",
+      "location": "Viaduct Harbour",
+      "coordinates": [
+        -36.8437,
+        174.7621
+      ],
+      "basis": "Approximate Viaduct venue coordinate; confirmed Auckland venue in employer advertisement"
+    },
+    "137 Victoria Street West": {
+      "employer": "Empire Tavern",
+      "location": "Auckland CBD",
+      "coordinates": [
+        -36.8481,
+        174.7578
+      ],
+      "basis": "Approximate coordinate at 137 Victoria Street West; employer advertisement gives street address"
+    }
+  }
+}
