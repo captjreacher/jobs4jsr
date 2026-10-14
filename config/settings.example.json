@@ -8,7 +8,127 @@
   "sources": [
     {
       "name": "Star Group direct employer",
-      "sitemap": "https://careers.stargroup.nz/sitemap.xml"
+      "sitemap": "https://careers.stargroup.nz/sitemap.xml",
+      "adapter": "star_group"
+    },
+    {
+      "name": "Accor Auckland hotels",
+      "adapter": "accor",
+      "sitemap": "https://careers.accor.com/vacanciessitemap.xml",
+      "locations": [
+        {
+          "employer": "Pullman Auckland Hotel & Apartments",
+          "location": "Auckland CBD",
+          "coordinates": [
+            -36.8487,
+            174.7705
+          ],
+          "match": [
+            "PULLMAN AUCKLAND HOTEL & APARTMENTS"
+          ],
+          "basis": "Approximate hotel coordinate; Cnr Waterloo Quadrant and Princes Street; https://www.pullmanauckland.co.nz/"
+        },
+        {
+          "employer": "Mövenpick Hotel Auckland",
+          "location": "Auckland CBD",
+          "coordinates": [
+            -36.8448,
+            174.767
+          ],
+          "match": [
+            "Mövenpick Hotel Auckland"
+          ],
+          "basis": "Approximate hotel coordinate; 8 Customs Street East; https://all.accor.com/hotel/1721/index.en.shtml"
+        },
+        {
+          "employer": "Novotel Auckland Ellerslie",
+          "location": "Greenlane",
+          "coordinates": [
+            -36.8886,
+            174.7989
+          ],
+          "match": [
+            "Novotel Auckland Ellerslie"
+          ],
+          "basis": "Approximate hotel coordinate; 72-112 Green Lane East; https://all.accor.com/hotel/3060/index.en.shtml"
+        },
+        {
+          "employer": "SO/ Auckland",
+          "location": "Auckland CBD",
+          "coordinates": [
+            -36.8451,
+            174.7698
+          ],
+          "match": [
+            "SO/ Auckland"
+          ],
+          "basis": "Approximate hotel coordinate; 67 Customs Street East; https://all.accor.com/hotel/9149/index.en.shtml"
+        },
+        {
+          "employer": "Sofitel Auckland Viaduct Harbour",
+          "location": "Viaduct Harbour",
+          "coordinates": [
+            -36.844,
+            174.7573
+          ],
+          "match": [
+            "Sofitel Auckland Viaduct Harbour"
+          ],
+          "basis": "Approximate hotel coordinate; 21 Viaduct Harbour Avenue; https://all.accor.com/hotel/8577/index.en.shtml"
+        }
+      ]
+    },
+    {
+      "name": "Hind Management / Sudima",
+      "adapter": "hind",
+      "feed": "https://apply.workable.com/api/v1/widget/accounts/hindmanagement",
+      "locations": [
+        {
+          "employer": "Sudima Auckland City",
+          "location": "Auckland CBD",
+          "coordinates": [
+            -36.8501,
+            174.7575
+          ],
+          "match": [
+            "Sudima Auckland City"
+          ],
+          "basis": "Approximate hotel coordinate; 63-67 Nelson Street; https://www.sudimahotels.com/en/our-hotels/auckland-city/"
+        },
+        {
+          "employer": "Sudima Auckland Airport",
+          "location": "Auckland Airport",
+          "coordinates": [
+            -36.9931,
+            174.7866
+          ],
+          "match": [
+            "Sudima Auckland Airport"
+          ],
+          "basis": "Airport hotel outside radius; https://www.sudimahotels.com/en/our-hotels/auckland-airport/"
+        }
+      ]
+    },
+    {
+      "name": "Atomic Coffee Roasters",
+      "adapter": "livehire",
+      "company": "atomiccoffeeroasters",
+      "listing": "https://www.livehire.com/careers/atomiccoffeeroasters/jobs",
+      "locations": [
+        {
+          "employer": "Atomic Coffee Roasters",
+          "location": "Kingsland",
+          "coordinates": [
+            -36.8713,
+            174.7468
+          ],
+          "match": [
+            "Atomic Coffee Roasters",
+            "Kingsland"
+          ],
+          "basis": "Approximate roastery coordinate; 420c New North Road; https://atomiccoffee.co.nz/pages/kingsland"
+        }
+      ]
     }
   ],
   "venues": {
@@ -20,7 +140,7 @@
       ],
       "basis": "Approximate venue/suburb coordinates; not travel distance; review venue identity before use"
     },
-    "Rosie\u2019s Red-Hot Cantina": {
+    "Rosie’s Red-Hot Cantina": {
       "location": "Viaduct Harbour",
       "coordinates": [
         -36.8436,
