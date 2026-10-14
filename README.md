@@ -1,5 +1,7 @@
 # Jobs4JSR
 
+Production private board: **[jess.funkmybrand.com](https://jess.funkmybrand.com)**. The previous hostname redirects permanently. Use Jess's existing account; see [hostname migration and deployment instructions](docs/hostname-migration.md).
+
 Local hospitality vacancy discovery, candidate evidence review, Word letters and offline reports. Python 3.11+ (verified here with Python 3.14), SQLite and Windows Task Scheduler. No subscription or AI API is needed. No application is submitted and no email is sent.
 
 ## Jess’s everyday use

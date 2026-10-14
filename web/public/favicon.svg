@@ -1,0 +1,20 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brand-favicon-gradient" x1="14" y1="8" x2="50" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E66A8D" />
+      <stop offset="55%" stop-color="#C21875" />
+      <stop offset="100%" stop-color="#7B3FF2" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#0A0A0A" />
+  <circle cx="14" cy="10" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="26" cy="10" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="38" cy="10" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="50" cy="10" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="14" cy="22" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="14" cy="34" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="24" cy="34" r="3.8" fill="url(#brand-favicon-gradient)" />
+  <circle cx="36" cy="34" r="3.8" fill="url(#brand-favicon-gradient)" />
+  <circle cx="14" cy="46" r="4.2" fill="url(#brand-favicon-gradient)" />
+  <circle cx="14" cy="58" r="4.2" fill="url(#brand-favicon-gradient)" />
+</svg>

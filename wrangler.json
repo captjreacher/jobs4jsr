@@ -9,11 +9,17 @@
     "run_worker_first": true
   },
   "vars": {
-    "SUPABASE_URL": "https://qnvihygrnfgpmsznayje.supabase.co"
+    "SUPABASE_URL": "https://qnvihygrnfgpmsznayje.supabase.co",
+    "CANONICAL_HOST": "jess.funkmybrand.com",
+    "LEGACY_REDIRECT_ENABLED": "true"
   },
   "routes": [
     {
       "pattern": "jess.maximisedai.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "jess.funkmybrand.com",
       "custom_domain": true
     }
   ]

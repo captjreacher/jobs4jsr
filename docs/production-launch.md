@@ -1,5 +1,7 @@
 # Jobs4JSR production launch — 14 October 2026
 
+**Current canonical URL:** https://jess.funkmybrand.com. The original hostname below now redirects; see [completed hostname migration](hostname-migration.md). Original launch versions and URLs are retained as historical evidence.
+
 Owner explicitly authorised the base production launch and **waived the verified-backup gate for this release**. This is accepted owner risk, not evidence that Funk My Brand is recoverable. No recovery investigations or additional readiness PRs were opened. The earlier NO-GO gate was superseded by this explicit waiver; recovery remains NOT VERIFIED.
 
 ## Applied release

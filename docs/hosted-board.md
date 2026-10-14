@@ -1,5 +1,7 @@
 # Private board Phase 1
 
+**Current production:** https://jess.funkmybrand.com. The existing Worker now has both Custom Domain bindings, with the old host redirecting. See [current hostname/deployment instructions](hostname-migration.md). The original preparation notes below are historical; no new provisioning, backend migration or letter upload is needed for a hostname change.
+
 This branch prepares the first board for Funk My Brand (`qnvihygrnfgpmsznayje`) and a dedicated Cloudflare Worker. Production activation is not part of this delivery. PRs #1 and #2 were confirmed merged before this branch was created from main `680e9cb`. Prior uncommitted drafts remain in the original checkout; this implementation is in `C:\DEV_LOCAL\jobs4jsr-phase1`.
 
 ## Local operation

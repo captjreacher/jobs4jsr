@@ -61,6 +61,22 @@ function setCookies(response, t) {
 export async function handle(request, env) {
   const url = new URL(request.url),
     path = url.pathname;
+  if (url.hostname === "jess.maximisedai.com" && env.LEGACY_REDIRECT_ENABLED === "true") {
+    // Never forward credentials, cookies or authentication callback material.
+    // Host-only sessions require a fresh login on the canonical hostname.
+    if (!["GET", "HEAD"].includes(request.method))
+      return reply({ error: "The board has moved. Sign in at https://jess.funkmybrand.com" }, 409);
+    const target = new URL("https://jess.funkmybrand.com");
+    target.pathname = path;
+    const sensitive = /token|code|state|secret|password|jwt|session|authorization|key|signature|ticket/i;
+    if (![...url.searchParams].some(([key, value]) => sensitive.test(key) || /^(Bearer\s|eyJ[A-Za-z0-9_-]+\.)/i.test(value)))
+      target.search = url.search;
+    // Explicit empty fragment prevents browsers inheriting an old OAuth fragment.
+    const response = new Response(null, { status: 301, headers: { ...headers, Location: target.href + "#" } });
+    for (const name of ["access", "refresh"])
+      response.headers.append("Set-Cookie", `${name}=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0`);
+    return response;
+  }
   if (!path.startsWith("/api/")) {
     const r = await env.ASSETS.fetch(request);
     const copy = new Response(r.body, r);

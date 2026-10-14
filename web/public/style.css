@@ -3,7 +3,7 @@
   color: #262139;
   background: #f7f6fa;
   font-size: 16px;
-  --purple: #6243bd;
+  --purple: #b9166f;
 }
 * {
   box-sizing: border-box;
@@ -20,6 +20,9 @@ header {
   border-bottom: 1px solid #e8e4ef;
 }
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -1px;
@@ -32,7 +35,7 @@ header {
 .brand small {
   display: block;
   font-size: 9px;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   color: #837994;
   margin-top: 5px;
 }
