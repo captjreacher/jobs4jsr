@@ -45,7 +45,7 @@ Private review artifacts: `data/private/document_review.md`, `candidate_summary.
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Baseline and discovery runs retain all qualifying vacancies without a result cap. The best three baseline matches, or at most three newly discovered matches on subsequent runs, are recommendations. `search` uses a separate manual run ID and never consumes a scheduled slot; it retains all qualifying matches and highlights at most three. Use an explicit `--run-id` to make manual reruns idempotent. `sources` prints persisted source checks as JSON. Repeat execution of a completed slot is a no-op. A slot is the latest Monday/Wednesday/Friday at or before 09:00 Auckland time. A manual scheduled invocation before today's 09:00 catches up the prior due slot. A failed source produces a report and exit code 2, with retries allowed; unexpected errors return nonzero. No empty results are described as successful searches when sources failed.
+Baseline and discovery runs retain all qualifying vacancies without a result cap. The best three baseline matches, or at most three newly discovered matches on subsequent runs, are recommendations. `search` uses a separate manual run ID and never consumes a scheduled slot; it retains all qualifying matches and highlights at most three. Use an explicit `--run-id` to make manual reruns idempotent. `sources` prints persisted source checks as JSON. Repeat execution of a completed slot is a no-op. A slot is the latest weekday at or before 02:00 Auckland time. A manual scheduled invocation before today's 02:00 catches up the prior due slot. A failed source produces a report and exit code 2, with retries allowed; unexpected errors return nonzero. No empty results are described as successful searches when sources failed.
 
 ## Sources and limitations
 
@@ -73,7 +73,7 @@ Ignored SQLite database: `data/private/jobs.sqlite3`. Jobs store source, canonic
 
 ## Local schedule
 
-Task: `Jobs4JSR Discovery`. Monday, Wednesday and Friday, 09:00 local time. The installer requires Windows `New Zealand Standard Time` (Pacific/Auckland) and creates a boundary without UTC offset, so Windows applies daylight-saving changes. Do not change the computer's timezone without reinstalling/reviewing the task.
+Task: `Jobs4JSR Discovery`. Monday to Friday, 02:00 local time. The installer requires Windows `New Zealand Standard Time` (Pacific/Auckland) and creates a boundary without UTC offset, so Windows applies daylight-saving changes. Do not change the computer's timezone without reinstalling/reviewing the task.
 
 Action: Windows PowerShell, NoProfile, NonInteractive, calling `scripts/run_scheduled.ps1` with the repository working directory and fixed virtualenv interpreter. Runs as the current user at limited privilege with InteractiveToken: **the computer must be on, the user signed in, and the runtime/network available**. No cloud execution is configured. StartWhenAvailable catches missed launches; the CLI collapses several missed slots to one latest slot. IgnoreNew prevents overlap. Timeout 20 minutes; two retries five minutes apart; battery operation allowed. It does not wake a sleeping PC.
 

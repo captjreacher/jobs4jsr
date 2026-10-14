@@ -58,9 +58,12 @@ class SystemTests(unittest.TestCase):
         c.close()
     def test_schedule(self):
         zone=ZoneInfo('Pacific/Auckland')
-        self.assertEqual(scheduler.due_slot(datetime(2026,10,14,8,tzinfo=zone)),'2026-10-12-scheduled')
-        self.assertEqual(scheduler.due_slot(datetime(2026,10,14,9,tzinfo=zone)),'2026-10-14-scheduled')
+        self.assertEqual(scheduler.due_slot(datetime(2026,10,14,1,tzinfo=zone)),'2026-10-13-scheduled')
+        self.assertEqual(scheduler.due_slot(datetime(2026,10,14,2,tzinfo=zone)),'2026-10-14-scheduled')
         self.assertEqual(scheduler.due_slot(datetime(2026,10,18,9,tzinfo=zone)),'2026-10-16-scheduled')
+        self.assertEqual(scheduler.due_slot(datetime(2026,10,19,1,tzinfo=zone)),'2026-10-16-scheduled')
+        self.assertEqual(scheduler.due_slot(datetime(2026,10,15,2,tzinfo=zone)),'2026-10-15-scheduled')
+        self.assertEqual(scheduler.due_slot(datetime(2026,9,28,2,tzinfo=zone)),'2026-09-28-scheduled')
     def test_cli_scheduled_idempotency(self):
         import sys
         from unittest.mock import patch
