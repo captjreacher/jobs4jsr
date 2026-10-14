@@ -1,5 +1,7 @@
 # Jobs4JSR controlled release readiness
 
+**Launch update:** The owner subsequently authorised production and explicitly waived the verified-backup requirement for this release as accepted risk. The base release is now deployed; see [production launch audit](production-launch.md). The historical NO-GO recommendation below was superseded by that authorisation, not by backup verification. Recovery remains NOT VERIFIED and hosted letters remain disabled.
+
 Prepared 14 October 2026, Pacific/Auckland. Scope: private vacancy board with Save, Dismiss and Applied. **Production activation is not authorised or performed.** Hosted letters and cloud discovery remain separate enhancements.
 
 ## Final blocker resolution — supersedes earlier migration/Storage instructions

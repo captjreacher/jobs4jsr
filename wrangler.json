@@ -8,5 +8,13 @@
     "binding": "ASSETS",
     "run_worker_first": true
   },
-  "vars": { "SUPABASE_URL": "https://qnvihygrnfgpmsznayje.supabase.co" }
+  "vars": {
+    "SUPABASE_URL": "https://qnvihygrnfgpmsznayje.supabase.co"
+  },
+  "routes": [
+    {
+      "pattern": "jess.maximisedai.com",
+      "custom_domain": true
+    }
+  ]
 }
