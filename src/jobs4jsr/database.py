@@ -10,6 +10,9 @@ def connect(path):
     CREATE TABLE IF NOT EXISTS status_history(id INTEGER PRIMARY KEY,job_id INTEGER,changed TEXT DEFAULT CURRENT_TIMESTAMP,status TEXT);
     CREATE TABLE IF NOT EXISTS source_checks(run_id TEXT NOT NULL, source TEXT NOT NULL, checked_at TEXT NOT NULL,
       last_successful_check TEXT, payload TEXT NOT NULL, PRIMARY KEY(run_id,source));
+    CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS vacancy_events(id INTEGER PRIMARY KEY,job_id INTEGER,run_id TEXT,kind TEXT,changed TEXT,payload TEXT);
+    CREATE TABLE IF NOT EXISTS sync_runs(id INTEGER PRIMARY KEY,attempted TEXT,status TEXT,error TEXT);
     """)
     return c
 

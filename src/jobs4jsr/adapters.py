@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from datetime import date
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
+import requests
 
 from .discovery import RateLimited, plain
 from .scoring import distance, target_role
@@ -132,6 +133,11 @@ def normalise(item, page, url, source, settings, today, *, fallback_id=None, app
 def detail(client, source, settings, today, check, url, **kwargs):
     try:
         page = client.get(url)
+        visible = plain(re.sub(r'<(script|style)\b[^>]*>.*?</\1>', '', page, flags=re.S|re.I))
+        if re.search(r'no longer accepting applications|vacancy closed|job has expired|position (?:is|has been) filled',visible,re.I):
+            check.observations[url]='closed'
+            check.excluded+=1
+            return None
         records = Page(page).postings
         if len(records) != 1:
             raise ValueError('Expected one specific JobPosting')
@@ -143,9 +149,18 @@ def detail(client, source, settings, today, check, url, **kwargs):
             check.verified += 1
         else:
             check.excluded += 1
+            visible = plain(re.sub(r'<(script|style)\b[^>]*>.*?</\1>', '', page, flags=re.S|re.I))
+            expired = records[0].get('validThrough', '')[:10]
+            if (expired and expired < today) or re.search(r'no longer accepting applications|vacancy closed|job has expired|position (?:is|has been) filled',visible,re.I):
+                check.observations[url] = 'closed'
         return job
     except RateLimited:
         raise
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code in (404,410):
+            check.observations[url] = 'closed'
+            check.notes.append('Confirmed unavailable advert: '+url)
+        else: check.error(f'{url}: {exc}')
     except ValueError as exc:
         if str(exc).startswith('Unverified/ambiguous'):
             check.excluded += 1

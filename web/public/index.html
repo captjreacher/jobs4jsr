@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Jess's Job Board</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/"
+        >Maximised<span>AI</span><small>PERSONAL JOB BOARD</small></a
+      ><button id="logout" hidden>Sign out</button>
+    </header>
+    <main>
+      <section id="login">
+        <p class="eyebrow">YOUR NEXT OPPORTUNITY</p>
+        <h1>Jess's Job Board</h1>
+        <p>Suitable hospitality jobs, together in one place.</p>
+        <form id="login-form">
+          <label
+            >Email<input
+              name="email"
+              type="email"
+              autocomplete="username"
+              required /></label
+          ><label
+            >Password<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required /></label
+          ><button class="primary">Sign in</button>
+        </form>
+        <p class="muted">Private access for Jess. No public signup.</p>
+      </section>
+      <section id="board" hidden>
+        <div class="intro">
+          <div>
+            <p class="eyebrow">A LITTLE CLOSER TO YOUR NEXT ROLE</p>
+            <h1>Jess's Job Board</h1>
+            <p>Browse, save a favourite, and apply when you're ready.</p>
+          </div>
+          <span class="radius">Within 10 km of Auckland CBD</span>
+        </div>
+        <nav aria-label="Job lists">
+          <button data-tab="all" aria-pressed="true">All Jobs</button
+          ><button data-tab="saved">Saved</button
+          ><button data-tab="applied">Applied</button
+          ><button data-tab="dismissed">Dismissed</button>
+        </nav>
+        <div class="filters">
+          <label
+            >Employer<select id="employer">
+              <option value="">All employers</option>
+            </select></label
+          ><label
+            >Role<select id="role">
+              <option value="">All roles</option>
+            </select></label
+          ><label
+            >Location<select id="location">
+              <option value="">All locations</option>
+            </select></label
+          ><label class="toggle"
+            ><input type="checkbox" id="dismissed" />Show dismissed</label
+          >
+        </div>
+        <p id="health" class="muted"></p>
+        <h2>Top recommendations</h2>
+        <div id="recommendations" class="jobs"></div>
+        <h2>Job catalogue</h2>
+        <p id="count" class="muted"></p>
+        <div id="jobs" class="jobs"></div>
+        <p class="muted footer">
+          Letters are suggestions for you to review and edit. Applications are
+          never sent automatically.
+        </p>
+      </section>
+      <p id="message" role="status" aria-live="polite"></p>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
