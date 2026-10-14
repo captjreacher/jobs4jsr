@@ -58,6 +58,9 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
         false,
       );
   }
+  // Hosted letters are an optional owner-only enhancement, never a base-migration side effect.
+  assert.equal((await db.query("select count(*)::int as count from storage.buckets where id='jobs4jsr-letters'")).rows[0].count,0);
+  await db.exec(await readFile('supabase/optional/jobs4jsr_letters_owner_only.sql','utf8'));
   const owner = "11111111-1111-1111-1111-111111111111",
     sync = "22222222-2222-2222-2222-222222222222",
     stranger = "33333333-3333-3333-3333-333333333333",
