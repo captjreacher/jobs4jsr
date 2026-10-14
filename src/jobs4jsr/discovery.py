@@ -70,6 +70,7 @@ class SourceCheck:
     errors: list = field(default_factory=list)
     notes: list = field(default_factory=list)
     last_successful_check: str | None = None
+    observations: dict = field(default_factory=dict)
 
     def error(self, message):
         self.errors.append(str(message))
@@ -92,7 +93,7 @@ class DiscoveryNotes(list):
         self.append('Restricted job boards and blocked ATS endpoints are not scraped. '
                     'Unknown venue locations and incomplete adverts are excluded.')
 
-def discover(settings, today):
+def discover(settings, today, existing=()):
     from .adapters import ADAPTERS
     client = Client(settings.get('request_delay', 1))
     jobs, checks = [], []
@@ -104,6 +105,14 @@ def discover(settings, today):
         try:
             adapter = ADAPTERS[source.get('adapter', 'star_group')]
             jobs.extend(adapter(client, source, settings, today, check))
+            # Missing from a listing is not closure. Recheck its original advert explicitly.
+            seen = {j.get('url') for j in jobs if j.get('source') == source['name']}
+            from .adapters import detail
+            for old in existing:
+                if old['source'] == source['name'] and old['url'] not in seen:
+                    check.inspected += 1
+                    job = detail(client, source, settings, today, check, old['url'])
+                    if job: jobs.append(job)
             if not check.errors:
                 check.last_successful_check = check.checked_at
         except Exception as exc:

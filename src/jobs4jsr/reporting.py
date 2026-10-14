@@ -1,12 +1,12 @@
 import html,os
 from pathlib import Path
-HEADERS=['ID','Date found','Employer','Position','Location','Distance','Job type','Match','Why it suits Jess','Job link','Suggested letter','Status','Date posted','Pay','Hours','Uncertainties','Last verified']
+HEADERS=['ID','Date found','Employer','Position','Location','Distance','Job type','Match','Why it suits Jess','Job link','Suggested letter','Status','Date posted','Pay','Hours','Uncertainties','Last verified','Advert state','Recommendation']
 
 def report(root,today,rows,diagnostics,run_id,source_checks=None):
     folder=root/'outputs'/'reports'/today; folder.mkdir(parents=True,exist_ok=True)
     rows=sorted(rows,key=lambda j:(-j['match'], -(int((j.get('posted') or '0000-00-00').replace('-','')))))
     def cells(j):
-        return [j['id'],j['found'],j['employer'],j['title'],j['location'],f"{j['distance']:.1f} km approx",j['job_type'],str(j['match'])+'/100',j['why'],j['url'],j['letter_docx'],j['status'],j.get('posted') or 'Unknown',j.get('salary') or 'Unknown',j.get('hours') or 'Unknown','; '.join(j.get('uncertainties',[])),j.get('last_verified','Unknown')]
+        return [j['id'],j['found'],j['employer'],j['title'],j['location'],f"{j['distance']:.1f} km approx",j['job_type'],str(j['match'])+'/100',j['why'],j['url'],j['letter_docx'],j['status'],j.get('posted') or 'Unknown',j.get('salary') or 'Unknown',j.get('hours') or 'Unknown','; '.join(j.get('uncertainties',[])),j.get('last_verified','Unknown'),j.get('vacancy_state','Unverified'), 'Top NEW opportunity' if j.get('recommended') else '']
     def relative(path,base): return Path(os.path.relpath(root/path,base)).as_posix()
     intro=f'Jobs4JSR — {today}\nRun: {run_id}. {len(rows)} suitable vacancies recorded for this view. Letters require Jess’s review. Distances are straight-line estimates. Availability and work rights need confirmation.'
     check_headers=['Source','State','Last successful check','Inspected','Verified','Qualified','Duplicates','Selected','Errors']
@@ -18,7 +18,7 @@ def report(root,today,rows,diagnostics,run_id,source_checks=None):
             values=cells(j); td=[]
             for n,v in enumerate(values):
                 if n==9: value='<a href="'+html.escape(str(v),quote=True)+'">View advertisement</a>'
-                elif n==10: value='<a href="'+html.escape(relative(v,base),quote=True)+'">Word letter</a> · <a href="'+html.escape(relative(j['letter_md'],base),quote=True)+'">Read letter</a>'
+                elif n==10: value=('<a href="'+html.escape(relative(v,base),quote=True)+'">Word letter</a> · <a href="'+html.escape(relative(j['letter_md'],base),quote=True)+'">Read letter</a>') if v else 'Generate locally on request'
                 else: value=html.escape(str(v))
                 td.append('<td>'+value+'</td>')
             trs.append('<tr>'+''.join(td)+'</tr>')
@@ -29,7 +29,7 @@ def report(root,today,rows,diagnostics,run_id,source_checks=None):
     md=['# '+intro,'','| '+' | '.join(HEADERS)+' |','| '+' | '.join(['---']*len(HEADERS))+' |']
     for j in rows:
         v=[str(x).replace('|','\\|').replace('\n',' ') for x in cells(j)]
-        v[9]='[Advertisement]('+j['url']+')'; v[10]='[Word letter]('+relative(j['letter_docx'],folder)+')'
+        v[9]='[Advertisement]('+j['url']+')'; v[10]='[Word letter]('+relative(j['letter_docx'],folder)+')' if j.get('letter_docx') else 'Generate locally on request'
         md.append('| '+' | '.join(v)+' |')
     if check_values:
         md+=['','## Source checks','','| '+' | '.join(check_headers)+' |','| '+' | '.join(['---']*len(check_headers))+' |']

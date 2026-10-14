@@ -13,7 +13,7 @@ Open `outputs/reports/latest.html` in a browser. Click the advertisement and Wor
 .\.venv\Scripts\python.exe -m jobs4jsr.cli report
 ```
 
-Statuses: New, Reviewed, Applied, Interview, Rejected, Closed. Status changes have a separate audit history and leave advertisement details intact. `report` shows all history; `report --run initial` shows the initial five. HTML/Markdown links are relative and work offline. The browser scrolls the table on small screens.
+Statuses: New, Reviewed, Applied, Interview, Rejected, Closed. Status changes have a separate audit history and leave advertisement details intact. `report` shows all history; `report --run initial` shows the original initial discovery. HTML/Markdown links are relative and work offline. The browser scrolls the table on small screens.
 
 ## Install or recover
 
@@ -27,7 +27,7 @@ cd C:\DEV_LOCAL\jobs4jsr
 
 The source folder and original documents are never modified. `profile` extracts PDF, DOCX and text into ignored private storage. This existing installation already contains a reviewed profile. On a fresh checkout it produces `profile_draft.json` and extracted documents, then stops for human review: fill `data/private/reviewed_profile.json` with verified facts, uncertainties and template style, and rerun `profile`. This deliberate review gate prevents extraction from becoming invented candidate experience. Do not claim capabilities from a template placeholder. The JSON experience entries need role, employer, start/end and a nonempty duties list. Skills are lower-case strings.
 
-Private review artifacts: `data/private/document_review.md`, `candidate_summary.md`, `jess_profile.json`, `reviewed_profile.json`, extracted documents and source SHA256 hashes. Back these up locally if needed. GitHub cannot restore them. After source changes, review and edit the reviewed profile before rerunning profile. `letters` regenerates letters from the current verified profile.
+Private review artifacts: `data/private/document_review.md`, `candidate_summary.md`, `jess_profile.json`, `reviewed_profile.json`, extracted documents and source SHA256 hashes. Back these up locally if needed. GitHub cannot restore them. After source changes, review and edit the reviewed profile before rerunning profile. `letters --job-id ID` generates one letter from the current verified profile.
 
 ## Manual searches and reports
 
@@ -38,11 +38,12 @@ Private review artifacts: `data/private/document_review.md`, `candidate_summary.
 .\.venv\Scripts\python.exe -m jobs4jsr.cli search --run-id employer-check
 .\.venv\Scripts\python.exe -m jobs4jsr.cli sources
 .\.venv\Scripts\python.exe -m jobs4jsr.cli report --run initial
-.\.venv\Scripts\python.exe -m jobs4jsr.cli letters
+.\.venv\Scripts\python.exe -m jobs4jsr.cli letters --job-id 1
+.\.venv\Scripts\python.exe -m jobs4jsr.cli baseline
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Initial discovery fills up to five recommendations and may resume a shortfall. Scheduled mode finds at most three new vacancies per due slot, including partial-run retries. `search` uses a separate manual run ID and never consumes a scheduled slot; it also selects at most three. Use an explicit `--run-id` to make manual reruns idempotent. `sources` prints persisted source checks as JSON. Repeat execution of a completed slot is a no-op. A slot is the latest Monday/Wednesday/Friday at or before 09:00 Auckland time. A manual scheduled invocation before today's 09:00 catches up the prior due slot. A failed source produces a report and exit code 2, with retries allowed; unexpected errors return nonzero. No empty results are described as successful searches when sources failed.
+Baseline and discovery runs retain all qualifying vacancies without a result cap. The best three baseline matches, or at most three newly discovered matches on subsequent runs, are recommendations. `search` uses a separate manual run ID and never consumes a scheduled slot; it retains all qualifying matches and highlights at most three. Use an explicit `--run-id` to make manual reruns idempotent. `sources` prints persisted source checks as JSON. Repeat execution of a completed slot is a no-op. A slot is the latest Monday/Wednesday/Friday at or before 09:00 Auckland time. A manual scheduled invocation before today's 09:00 catches up the prior due slot. A failed source produces a report and exit code 2, with retries allowed; unexpected errors return nonzero. No empty results are described as successful searches when sources failed.
 
 ## Sources and limitations
 
@@ -50,7 +51,7 @@ Four independent employers are configured: Star Group; Accor Auckland hotels; Hi
 
 All adapters honour robots.txt, crawl delay, request-rate directives and redirects, wait at least one second per request and use 25-second timeouts. Every redirect destination is checked before fetching. HTTP 429 stops that employer immediately and records Retry-After; other employers continue. A source failure or broken detail page is isolated; other employers continue and still produce reports and letters. The overall command returns exit code 2 for partial or failed source checks; successful results remain saved. Only GET requests are used. Restricted job boards, blocked JobAdder widgets, blocked SmartRecruiters API endpoints, expressions of interest and incomplete listings are excluded. Scheduled scripts do not depend on Codex browsing.
 
-Each source check stores checked time, last fully successful check, state, inspected summaries/cards, verified in-radius descriptions, qualified matches, duplicates, selected jobs, exclusions, notes and errors. Counts are per check/attempt. Qualified counts include duplicates before removal; selected counts are new additions after the run quota. A successful check means the feed and attempted descriptions were retrieved without errors, not that any suitable job exists. Later failures retain the earlier successful timestamp. A separate additive `source_checks` table preserves existing jobs, statuses and runs. Run-specific reports contain a source diagnostics table; `report --run <id>` regenerates it from the database.
+Each source check stores checked time, last fully successful check, state, inspected summaries/cards, verified in-radius descriptions, qualified matches, duplicates, selected jobs, exclusions, notes and errors. Counts are per check/attempt. Qualified counts include duplicates before removal; selected counts are all newly retained additions; recommendation count is separately capped at three. A successful check means the feed and attempted descriptions were retrieved without errors, not that any suitable job exists. Later failures retain the earlier successful timestamp. A separate additive `source_checks` table preserves existing jobs, statuses and runs. Run-specific reports contain a source diagnostics table; `report --run <id>` regenerates it from the database.
 
 Target roles include waitress/waiter, restaurant server, FOH/front-of-house, food-and-beverage attendant, hospitality team member, café assistant and hospitality guest service. The system reads qualification requirements before recommending. Unsupported barista roles and identified mandatory specialist/service experience are excluded; an entry-level café role explicitly offering barista learning can qualify. This is conservative heuristic assessment, so Jess still reviews every advert and letter.
 
@@ -93,3 +94,6 @@ All `data/`, `outputs/`, local configuration, `.env`, virtualenv and generated p
 Tests cover each employer adapter, malformed feeds and pages, robots denial, checked redirects and delays, source failure isolation, cross-source and same-batch deduplication, three-job retry budgets, manual/scheduled isolation, additive database upgrades and last-success timestamps, plus the original distance, scoring, extraction, letters, reports, history and schedule checks. Live employer discovery and Task Scheduler execution are checked separately; mocked tests are not proof of a live provider. DOCX visual verification uses LibreOffice with the document renderer when available; LibreOffice is optional for daily discovery. Scheduled future runs create reviewable letters but do not automatically render them. Review Word output before applying.
 
 No ongoing subscription fees. Dependencies are the pinned Python packages in requirements.txt, Windows scheduling, internet access for discovery, and a Word-compatible editor for review. README, code, tests, example configuration and scripts are safe to push; candidate data and application history stay local.
+# Phase 1 private board
+
+The private Cloudflare/Supabase board and uncapped catalogue are prepared on this feature branch. Read [operation, release approvals and rollback](docs/hosted-board.md), [validation evidence](docs/phase1-validation.md), and the separate [legacy CV security proposal](docs/legacy-cv-security-remediation.md). No production deployment is included. Baseline retains all qualifying jobs; scheduled runs retain all new matches and highlight at most three recommendations. Use `letters --job-id ID` for additional local letters.

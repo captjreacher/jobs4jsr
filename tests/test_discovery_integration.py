@@ -49,7 +49,7 @@ class IntegrationTests(unittest.TestCase):
                          [('2026-10-12-scheduled', 'preserved')])
         self.assertEqual(len(database.jobs(c)), 1); c.close()
 
-    def test_partial_run_retry_never_exceeds_three_recommendations(self):
+    def test_partial_run_retry_retains_all_jobs_and_only_three_recommendations(self):
         def notes():
             good = discovery.SourceCheck('Employer A', '2026-10-14T10:00:00+13:00', last_successful_check='2026-10-14T10:00:00+13:00')
             bad = discovery.SourceCheck('Employer B', '2026-10-14T10:00:00+13:00', status='failed', errors=['timeout'])
@@ -59,7 +59,8 @@ class IntegrationTests(unittest.TestCase):
                 self.invoke([self.job(n) for n in range(5)], notes(), 'scheduled')
             self.assertEqual(caught.exception.code, 2)
         c = self.connect()
-        self.assertEqual(len(database.jobs(c)), 3)
+        self.assertEqual(len(database.jobs(c)), 5)
+        self.assertEqual(sum(j.get('recommended',False) for j in database.jobs(c)),3)
         self.assertEqual(len(database.source_checks(c)), 2)
         self.assertEqual(database.source_checks(c)[1]['status'], 'failed'); c.close()
 

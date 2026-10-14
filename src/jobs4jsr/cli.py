@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
-from . import candidate, database, discovery, scoring, deduplication, letters, reporting, scheduler
+from . import candidate, database, discovery, scoring, deduplication, letters, reporting, scheduler, catalogue, sync
 
 
 def parser_for():
@@ -16,7 +16,9 @@ def parser_for():
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('setup')
     p = sub.add_parser('profile'); p.add_argument('--source', default='C:/DEV_LOCAL/TEMP')
-    sub.add_parser('letters'); sub.add_parser('initial'); sub.add_parser('scheduled')
+    sub.add_parser('baseline'); sub.add_parser('sync')
+    p=sub.add_parser('letters');p.add_argument('--job-id',type=int,required=True)
+    sub.add_parser('initial'); sub.add_parser('scheduled')
     p = sub.add_parser('search'); p.add_argument('--run-id', help='Optional manual identifier, safely repeatable')
     p = sub.add_parser('report'); p.add_argument('--run')
     sub.add_parser('list')
@@ -28,6 +30,7 @@ def parser_for():
 def main():
     a = parser_for().parse_args()
     root = a.root.resolve(); config = root / 'config/settings.json'
+    sync.load_env(root)
     if not config.exists():
         config.write_text((root / 'config/settings.example.json').read_text(encoding='utf-8'), encoding='utf-8')
     c = database.connect(root / 'data/private/jobs.sqlite3')
@@ -41,6 +44,8 @@ def main():
         if a.command == 'list':
             for j in database.jobs(c): print(j['id'], j['status'], j['employer'], j['title'])
             return
+        if a.command == 'sync':
+            sync.publish(c,root); return
         if a.command == 'sources':
             print(json.dumps(database.source_checks(c), indent=2, ensure_ascii=True)); return
         now = datetime.now(ZoneInfo('Pacific/Auckland')); today = now.date().isoformat()
@@ -53,73 +58,49 @@ def main():
                   a.run or 'history', source_checks=checks)); return
         profile = json.loads((root / 'data/private/jess_profile.json').read_text(encoding='utf-8'))
         if a.command == 'letters':
-            for j in database.jobs(c): letters.generate(j, profile, root, j['found'])
-            print('Letters regenerated from verified local profile'); return
+            j=next((j for j in database.jobs(c) if j['id']==a.job_id),None)
+            if not j:raise ValueError('Unknown job ID')
+            j['letter_md'],j['letter_docx']=letters.generate(j,profile,root,today)
+            c.execute('UPDATE jobs SET payload=? WHERE id=?',(json.dumps({k:v for k,v in j.items() if k not in ('id','status')}),j['id']));c.commit()
+            print('Letter generated locally; upload requires separate approval'); return
         if a.command == 'scheduled':
             run_id = scheduler.due_slot(now)
         elif a.command == 'initial':
             run_id = 'initial'
+        elif a.command == 'baseline':
+            run_id='baseline-'+now.strftime('%Y-%m-%d-%H%M%S')+'-'+uuid4().hex[:8]
         else:
             suffix = a.run_id or now.strftime('%Y-%m-%d-%H%M%S') + '-' + uuid4().hex[:8]
             if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', suffix):
                 raise ValueError('Manual run ID must contain only letters, digits, underscore and hyphen')
             run_id = 'manual-' + suffix
-        quota = 5 if a.command == 'initial' else 3
         c.execute('BEGIN IMMEDIATE')
         prior = c.execute('SELECT completed FROM runs WHERE id=?', (run_id,)).fetchone()
         existing = [j for j in database.jobs(c) if j.get('run_id') == run_id]
-        if prior and prior[0] and (a.command != 'initial' or len(existing) >= quota):
+        if prior and prior[0]:
             c.rollback(); print('Run already completed:', run_id); return
         c.execute('''INSERT INTO runs(id,started) VALUES(?,?)
             ON CONFLICT(id) DO UPDATE SET started=excluded.started,completed=NULL''', (run_id, now.isoformat()))
-        found, notes = discovery.discover(settings, today)
-        previous, qualified = database.jobs(c), []
-        checks = {check.source: check for check in getattr(notes, 'checks', [])}
-        for j in found:
-            check = checks.get(j['source'])
-            match = scoring.score(j, profile)
-            if not match:
-                if check: check.excluded += 1
-                continue
-            if check: check.qualified += 1
-            duplicate = next((old for old in previous + qualified if deduplication.duplicate(j, old)), None)
-            if duplicate:
-                if check: check.duplicates += 1
-                duplicate['last_verified'] = now.isoformat()
-                alternate = duplicate.setdefault('alternate_sources', [])
-                evidence = dict(source=j['source'], url=j['url'], verified_at=now.isoformat())
-                alternate[:] = [x for x in alternate if (x['source'], x['url']) != (j['source'], j['url'])]
-                alternate.append(evidence)
-                if j['url'] == duplicate['url']:
-                    duplicate.update(recent=j['recent'], job_type=j['job_type'], description=j['description'],
-                                     structured_job_type=j.get('structured_job_type'), uncertainties=j['uncertainties'])
-                    duplicate['match'], duplicate['why'] = match
-                if duplicate in previous:
-                    payload = {k: v for k, v in duplicate.items() if k not in ('id', 'status')}
-                    c.execute('UPDATE jobs SET payload=? WHERE id=?', (json.dumps(payload), duplicate['id']))
-                continue
-            j['match'], j['why'] = match
-            qualified.append(j)
-        # Retry budget includes jobs already committed to this slot, not three more per attempt.
-        selected = sorted(qualified, key=lambda j: (j['match'], j.get('posted') or ''), reverse=True)[:max(0, quota-len(existing))]
-        for j in selected:
-            j.update(found=today, last_verified=now.isoformat(), run_id=run_id)
-            j['letter_md'], j['letter_docx'] = letters.generate(j, profile, root, today)
-            j['id'] = database.add(c, j); j['status'] = 'New'
-            if j['source'] in checks: checks[j['source']].selected += 1
+        previous=database.jobs(c)
+        found, notes = discovery.discover(settings, today, previous)
+        result=catalogue.reconcile(c,root,profile,found,notes,run_id,now.isoformat(),today)
+        checks={check.source:check for check in getattr(notes,'checks',[])}
+        selected=[j for j in result['catalogue'] if j.get('run_id')==run_id]
         check_rows = discovery.serialise_checks(notes)
         database.save_source_checks(c, run_id, check_rows)
         for row in check_rows:
             checks[row['source']].last_successful_check = row['last_successful_check']
         if hasattr(notes, 'refresh'): notes.refresh()
-        notes.append(f'Quota: {quota} per run including retries; selected {len(selected)} new vacancies. No applications submitted.')
-        report_rows = [j for j in database.jobs(c) if j.get('run_id') == run_id]
+        notes.append(f"Uncapped catalogue: {result['new']} new, {result['duplicates']} duplicates, {result['changed']} changed. Top three NEW jobs are recommendations; all qualifying jobs are retained.")
+        report_rows = result['catalogue']
         output = reporting.report(root, today, report_rows, notes, run_id, source_checks=check_rows)
         failed = any(check.errors for check in checks.values()) or any(x.startswith('SOURCE FAILED') for x in notes)
         c.execute('UPDATE runs SET completed=?,diagnostics=? WHERE id=?',
                   (None if failed else datetime.now(ZoneInfo('Pacific/Auckland')).isoformat(), json.dumps(list(notes)), run_id))
         c.commit()
         print(output); print('Run:', run_id); print('New jobs:', len(selected))
+        if sync.configured():
+            sync.publish(c,root)
         if failed:
             print('One or more sources failed; remaining sources completed. Inspect report.', file=sys.stderr)
             sys.exit(2)
