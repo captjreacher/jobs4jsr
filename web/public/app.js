@@ -1,3 +1,4 @@
+import { openLetterEditor, clearLetterDrafts } from "./cover-letter.js";
 let jobs = [],
   tab = "all";
 const $ = (id) => document.getElementById(id);
@@ -117,11 +118,13 @@ function render() {
         j.dismissed ? "restore" : "dismiss",
         j.dismissed ? "Restore" : "Dismiss",
       ],
+      ...(j.saved && !j.dismissed ? [["letter", "Create cover letter"]] : []),
       ["applied", j.applied ? "Applied ✓" : "Applied"],
     ]) {
       const b = el("button", label);
       b.disabled = action === "applied" && j.applied;
       b.onclick = async () => {
+        if (action === "letter") { openLetterEditor(j); return; }
         b.disabled = true;
         try {
           await api(`/jobs/${j.id}/decision`, {
@@ -201,6 +204,7 @@ async function load() {
     }
     render();
   } catch (e) {
+    if ([401,403].includes(e.status)) clearLetterDrafts();
     $("message").textContent = e.status === 401 ? "" : e.message;
     $("login").hidden = false;
     $("board").hidden = true;
@@ -229,6 +233,7 @@ if (typeof document !== "undefined") {
   };
   $("logout").onclick = async () => {
     await api("/logout", { method: "POST" });
+    clearLetterDrafts();
     jobs = [];
     $("jobs").replaceChildren();
     await load();

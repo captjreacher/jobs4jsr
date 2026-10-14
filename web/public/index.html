@@ -81,6 +81,23 @@
       </section>
       <p id="message" role="status" aria-live="polite"></p>
     </main>
+    <dialog id="letter-editor" aria-labelledby="letter-heading">
+      <div class="editor-heading"><h2 id="letter-heading">Create cover letter</h2><button id="letter-close" type="button">Close</button></div>
+      <p>Start with the employer details, add your relevant experience, then update and edit the draft. Nothing is uploaded or sent.</p>
+      <form id="letter-fields" class="letter-fields">
+        <label>Employer<input name="employer" /></label>
+        <label>Position<input name="position" /></label>
+        <label>Hiring manager or team<input name="recipient" /></label>
+        <label>Your name<input name="name" autocomplete="name" /></label>
+        <label class="wide">Relevant experience and strengths<textarea name="experience" rows="3" placeholder="Use verified CV information; do not invent qualifications or experience."></textarea></label>
+        <label class="wide">Why this employer and role?<textarea name="motivation" rows="2"></textarea></label>
+        <label class="wide">How you meet the advertised requirements<textarea name="focus" rows="2"></textarea></label>
+      </form>
+      <button id="letter-build" type="button">Update draft from fields</button>
+      <label class="letter-content">Edit your cover letter<textarea id="letter-text" rows="18" spellcheck="true"></textarea></label>
+      <div class="actions"><button id="letter-copy" type="button">Copy letter</button><button id="letter-download" type="button">Download draft (.md)</button></div>
+      <p id="letter-message" class="muted" role="status"></p>
+    </dialog>
     <script type="module" src="/app.js"></script>
   </body>
 </html>
