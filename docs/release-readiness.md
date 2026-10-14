@@ -2,6 +2,69 @@
 
 Prepared 14 October 2026, Pacific/Auckland. Scope: private vacancy board with Save, Dismiss and Applied. **Production activation is not authorised or performed.** Hosted letters and cloud discovery remain separate enhancements.
 
+## Final blocker resolution — supersedes earlier migration/Storage instructions
+
+Started from PR #5 merge `5b9122843ea0da9194fa722fa092243a4d5885d8` on updated main. This review proposes a narrow, unapplied change to migration 1; migration 2 is unchanged. Earlier sections below are historical evidence, including their original checksums and Storage blocker. Do not execute their superseded Storage release instructions.
+
+| Gate | Current decision | Evidence/limit |
+|---|---|---|
+| Storage ownership | RESOLVED for base vacancy-board migration | Remove hosted-letter bucket and three Storage policy statements from automatic migration 1; shared ownership/permissions unchanged |
+| Backup | NOT VERIFIED | Fresh Management API HTTP 200: no backup entries, PITR false; no populated database archive or isolated restore |
+| Migration runner | READY for corrected base SQL selection and isolated privileges | Existing approved CLI connection; dry-run selects only the two versions; isolated non-owner role executes both |
+| Migration tests | PASS | Fresh Node/PostgreSQL security/runner tests and Python integration-harness tests; real Supabase API tests remain gated |
+| Migration stage | **NO-GO** | Verified recovery is still required before applying either file |
+
+### Ownership correction and compatibility
+
+The failing operation was `CREATE POLICY ... ON storage.objects`, which requires ownership; the old SQL had **three**, not four, such policies. Production owner is `supabase_storage_admin`; current `postgres` is non-superuser and lacks owner membership. No Storage administrative helper was found in the inspected Storage functions. An MCP migration endpoint has not been proven to use a different owner context. No ownership transfer, privilege elevation or new credential was performed.
+
+The immediate release needs jobs and decisions, while generated-letter uploads are explicitly disabled. Migration 1 now creates only the original public board tables/RLS/grants; it does not touch `storage.buckets` or `storage.objects`. Future bucket/policy setup is preserved in `supabase/optional/jobs4jsr_letters_owner_only.sql`, outside the automatic migrations directory. Its guard requires Storage RLS and an owner-equivalent context before any bucket write. **A production owner execution mechanism for hosted letters remains unverified** and needs a separate enhancement approval. No hosted letters are enabled by this correction.
+
+`web/tests/migration-runner.test.mjs` reproduces the production ownership split. The non-owner runner executes the corrected migrations in order and preserves RLS on all six tables; no bucket is created and shared Storage owner is unchanged. Adding the optional owner-only step deliberately fails and transaction rollback removes all preceding board objects and bucket writes. Existing RLS tests separately exercise optional letter policies under the privileged isolated fixture and test allowed/denied access. PGlite is PostgreSQL with simplified platform fixtures, not a production restore or real JWT/Storage integration test.
+
+Public table SQL, explicit grants/revokes, reader/sync separation and Auth FKs are unchanged. Neither corrected migration touches legacy `cv`, `cvs`, `cv_files`, their permissions, CV functions or Auth triggers. Read-only production checks still show no Jobs4JSR objects/bucket. Existing Storage policies cover logos/uploads; base release adds none. Existing free profile/subscription/entitlement provisioning side effects and account-deletion FK coupling remain as previously documented; no users were created. Application service compatibility is assessed from unchanged definitions and tests, not claimed as a production deployment test.
+
+### Current release files and ordering
+
+SHA256 of local checkout bytes (Windows line endings; recheck actual staged artifacts before release):
+
+1. `20261014034534_jobs4jsr_private_board.sql`: `3025586FE59954A166F22ABD0E85F94104D2374A16641BD9999925CC6D197586` — intentionally changed from PR #5, only hosted-letter setup deferred.
+2. `20261014041250_jobs4jsr_health.sql`: `5385B79A26671A688F23D71485CA222D1091AFDD6AE942699D77E90EA7A7752D` — unchanged.
+3. Optional, **not a release migration**: `jobs4jsr_letters_owner_only.sql`: `8E1B1CE6DA69F3C7FDBD73A2B396F198CCFFF97C51EE3A75EC8409E219FFF178`.
+
+Existing canonical FMB history is 40 migrations through `20260715011744_narrow_active_sync_all_index`. The ignored staging runner retains those exact files and linked project reference `qnvihygrnfgpmsznayje`; corrected migration 1 was refreshed there. Fresh `supabase db push --linked --workdir tmp/migration-blockers/runner --dry-run` exited 0 and selected only migration 1 then migration 2, explicitly without pushing. CLI 2.109.1 uses existing Windows Credential Manager `Supabase CLI:supabase` and its provider-managed temporary login context; no secrets are printed. Dry-run proves connection/history/selection, not remote DDL execution.
+
+### Recovery evidence and remaining gate
+
+Fresh existing-credential GET of the project's backup endpoint returns `walg_enabled=true`, `pitr_enabled=false`, `backups=[]`, `physical_backup_data={}`. Recovery point, retention and managed restore capability are not verified. A managed restore can affect the entire shared FMB database. The installed local Docker Desktop did not establish a Linux engine; its pipe is unavailable and service stopped. No native PostgreSQL client/restore runtime was verified. No paid infrastructure was provisioned and no production dump/restore was performed.
+
+[Database recovery procedure](database-recovery.md) defines a full-schema, populated, consistent logical archive; role/ownership/ACL/RLS inventory; isolated restore checks; and exclusions including actual Storage bytes, secrets and external configuration. It includes prepared commands and explicit local restore guards. **It is not an executed backup.** Neither a schema-only capture, archive listing nor the local migration fixture proves full shared-project recoverability. Owner action is needed to restore an approved free local runtime/connection and complete capture/restore, or approve a specifically costed non-production restore facility.
+
+### Exact migration release and rollback controls
+
+After this correction is reviewed/merged, recovery is verified and the owner separately approves migration application, rebuild the ignored runner from the clean canonical FMB 40-file history plus these two reviewed files, verify its exact linked ref and hashes, and use:
+
+```powershell
+$ErrorActionPreference='Stop'
+function Invoke-ReleaseCLI { param([string[]]$ReleaseArgs)
+  & supabase @ReleaseArgs
+  if ($LASTEXITCODE -ne 0) { throw 'Stop: release command failed; inspect state/history before retry.' }
+}
+Get-Content tmp/migration-blockers/runner/supabase/.temp/project-ref
+Get-FileHash supabase/migrations/*.sql
+Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','tmp/migration-blockers/runner','--dry-run')
+# AFTER separate owner approval and verified recovery ONLY:
+# Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','tmp/migration-blockers/runner')
+```
+
+Do not use `--include-all`, manual history repair, or the canonical checkout's default pending-file selection. Audit commit, local byte hashes, selected versions, executor, timestamp, CLI exit and before/after history. Each migration must stop on failure; the CLI release is not one transaction across both files. If migration 2 fails after migration 1 commits, stop with migration 1 retained and reconcile actual history/objects before retry. The isolated test verifies SQL transaction rollback, not an authorised remote failure trial. Post-apply verify six RLS-enabled tables, effective grants, zero hosted-letter bucket/policies, and unchanged legacy definitions, then run the existing real Supabase integration harness under separately approved test accounts. No activation follows automatically.
+
+For an empty base release, use a separately reviewed transactional cleanup of only Jobs4JSR objects in dependency order (`source_checks`, `sync_health`, `runs`, `decisions`, `jobs`, `members`); do not alter shared Storage or CV objects. Do not remove migration ledger entries manually. With data, preserve/export decisions and disable access/publishing before a reviewed corrective migration. Complete shared-project restoration is a separate DBA operation with owner-approved shared-service impact, following verified recovery evidence.
+
+Next approvals: (1) review/merge the scoped Storage deferral; (2) approve the recovery execution route, including any quoted non-production cost, then require restore evidence; (3) only after both gates pass, explicitly approve applying the two migrations. Auth provisioning, publication, hosted letters, Worker deployment and DNS remain separate unauthorised stages. `JOBS4JSR_LETTER_UPLOAD_APPROVED=false` remains unchanged. Stop before production activation.
+
+Fresh final validation: **46 Python tests and 13 Node/PostgreSQL tests pass**; `git diff --check` passes. All 27 recorded private hashes and all `jobs`, `runs`, `status_history` rows remain unchanged. Task XML and named stash were checked unchanged. Test scheduled runs use temporary fixture databases and do not consume the real scheduled slot.
+
 ## Merge and installation
 
 [PR #3](https://github.com/captjreacher/jobs4jsr/pull/3) was already merged at 17:40:01 NZDT (04:40:01 UTC) when inspected. Merge commit: `ebc8674c11b8e18db0b9954859c06510b59724b9`; reviewed implementation head: `7d6442477f330ce42883152ef2cacd866870dcc8`. GitGuardian completed successfully. GitHub reports main is not protected and there are no repository rulesets, so no enforced required-check gate was found. No additional merge was performed.
