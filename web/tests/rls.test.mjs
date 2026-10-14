@@ -7,6 +7,9 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
   await db.exec(
     `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id serial,name text,bucket_id text);alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert,update on storage.objects to authenticated;grant usage on sequence storage.objects_id_seq to authenticated;create function storage.foldername(text) returns text[] language sql immutable as $$select string_to_array($1,'/')$$;grant execute on function storage.foldername(text) to authenticated;`,
   );
+  await db.exec(
+    `alter default privileges in schema public grant all on tables to anon,authenticated,public;grant usage on schema storage to anon;grant select on storage.objects to anon;`,
+  );
   const file = (await readdir("supabase/migrations")).find((x) =>
     x.endsWith("_jobs4jsr_private_board.sql"),
   );
@@ -14,6 +17,47 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
     .filter((x) => x.endsWith(".sql"))
     .sort())
     await db.exec(await readFile("supabase/migrations/" + migration, "utf8"));
+  for (const table of [
+    "members",
+    "jobs",
+    "decisions",
+    "runs",
+    "source_checks",
+    "sync_health",
+  ]) {
+    assert.equal(
+      (
+        await db.query(
+          `select relrowsecurity from pg_class where oid='public.jobs4jsr_${table}'::regclass`,
+        )
+      ).rows[0].relrowsecurity,
+      true,
+    );
+    for (const permission of [
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "DELETE",
+      "TRUNCATE",
+    ])
+      assert.equal(
+        (
+          await db.query(
+            `select has_table_privilege('anon','public.jobs4jsr_${table}','${permission}') as allowed`,
+          )
+        ).rows[0].allowed,
+        false,
+      );
+    for (const permission of ["DELETE", "TRUNCATE"])
+      assert.equal(
+        (
+          await db.query(
+            `select has_table_privilege('authenticated','public.jobs4jsr_${table}','${permission}') as allowed`,
+          )
+        ).rows[0].allowed,
+        false,
+      );
+  }
   const owner = "11111111-1111-1111-1111-111111111111",
     sync = "22222222-2222-2222-2222-222222222222",
     stranger = "33333333-3333-3333-3333-333333333333",
@@ -87,6 +131,10 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
   await db.exec("reset role;set role anon");
   await assert.rejects(db.query("select * from jobs4jsr_jobs"));
   await assert.rejects(db.query("select * from jobs4jsr_sync_health"));
+  assert.equal(
+    (await db.query("select * from storage.objects")).rows.length,
+    0,
+  );
   await db.exec("reset role");
   assert.equal(
     (await db.query("select public from storage.buckets")).rows[0].public,

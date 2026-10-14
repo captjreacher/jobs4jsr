@@ -1,0 +1,494 @@
+{
+  "triggers": [
+    {
+      "nspname": "auth",
+      "relname": "users",
+      "tgname": "on_auth_user_created",
+      "definition": "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.handle_new_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nBEGIN\r\n  INSERT INTO public.profiles (id, email, full_name)\r\n  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name');\r\n  RETURN NEW;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "nspname": "auth",
+      "relname": "users",
+      "tgname": "on_auth_user_created_subscription",
+      "definition": "CREATE TRIGGER on_auth_user_created_subscription AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user_subscription()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.handle_new_user_subscription()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nBEGIN\r\n  INSERT INTO public.subscriptions (user_id, status, plan)\r\n  VALUES (NEW.id, 'active', 'free');\r\n  RETURN NEW;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "nspname": "auth",
+      "relname": "users",
+      "tgname": "trg_auth_users_seed_entitlement",
+      "definition": "CREATE TRIGGER trg_auth_users_seed_entitlement AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION seed_user_entitlement()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.seed_user_entitlement()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  insert into public.user_entitlements (user_id, plan, deployment_limit)\n  values (new.id, 'free', 1)\n  on conflict (user_id) do nothing;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "nspname": "public",
+      "relname": "profiles",
+      "tgname": "trg_profiles_bump_version",
+      "definition": "CREATE TRIGGER trg_profiles_bump_version BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION bump_version()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.bump_version()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  new.version = old.version + 1;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "nspname": "public",
+      "relname": "profiles",
+      "tgname": "trg_profiles_enforce_limit",
+      "definition": "CREATE TRIGGER trg_profiles_enforce_limit BEFORE INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION enforce_profile_limit()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.enforce_profile_limit()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\ndeclare\n  active_count integer;\nbegin\n  if new.is_active is distinct from true then\n    return new;\n  end if;\n\n  select count(*) into active_count\n  from public.profiles p\n  where p.user_id = new.user_id\n    and p.is_active = true;\n\n  if active_count >= 10 then\n    raise exception 'PROFILE_LIMIT_REACHED'\n      using errcode = 'P0001',\n            detail = 'A user can only have up to 10 active profiles.';\n  end if;\n\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "nspname": "public",
+      "relname": "profiles",
+      "tgname": "trg_profiles_set_updated_at",
+      "definition": "CREATE TRIGGER trg_profiles_set_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION set_updated_at()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  new.updated_at = now();\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "nspname": "public",
+      "relname": "user_entitlements",
+      "tgname": "trg_user_entitlements_set_updated_at",
+      "definition": "CREATE TRIGGER trg_user_entitlements_set_updated_at BEFORE UPDATE ON public.user_entitlements FOR EACH ROW EXECUTE FUNCTION set_updated_at()",
+      "function_definition": "CREATE OR REPLACE FUNCTION public.set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  new.updated_at = now();\n  return new;\nend;\n$function$\n"
+    }
+  ],
+  "dependencies": {
+    "columns": [
+      {
+        "table_name": "profiles",
+        "column_name": "id",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "email",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "full_name",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "avatar_url",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "role",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": "'user'::text"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "is_admin",
+        "udt_name": "bool",
+        "is_nullable": "YES",
+        "column_default": "false"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "created_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "updated_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "display_name",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "bio",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "role_tags",
+        "udt_name": "_text",
+        "is_nullable": "YES",
+        "column_default": "ARRAY[]::text[]"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "socials",
+        "udt_name": "jsonb",
+        "is_nullable": "YES",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "last_updated",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "app_role",
+        "udt_name": "app_role",
+        "is_nullable": "YES",
+        "column_default": "'user'::app_role"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "admin_permissions",
+        "udt_name": "_text",
+        "is_nullable": "YES",
+        "column_default": "'{}'::text[]"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "last_admin_login",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "admin_notes",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "suspended_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "suspended_by",
+        "udt_name": "uuid",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "suspension_reason",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "is_suspended",
+        "udt_name": "bool",
+        "is_nullable": "YES",
+        "column_default": "false"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "last_admin_action",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "subscription_tier",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": "'free'::text"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "user_id",
+        "udt_name": "uuid",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "name",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "sport_template",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": "'rugby'::text"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "accent_color",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "is_active",
+        "udt_name": "bool",
+        "is_nullable": "YES",
+        "column_default": "true"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "version",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": "1"
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "current_version_id",
+        "udt_name": "uuid",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "headline",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "location",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "primary_role",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "profiles",
+        "column_name": "is_seeded",
+        "udt_name": "bool",
+        "is_nullable": "NO",
+        "column_default": "false"
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "id",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()"
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "user_id",
+        "udt_name": "uuid",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "status",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": "'free'::text"
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "plan",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": "'free'::text"
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "stripe_customer_id",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "stripe_subscription_id",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "current_period_start",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "current_period_end",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "created_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "subscriptions",
+        "column_name": "updated_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "user_entitlements",
+        "column_name": "user_id",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "user_entitlements",
+        "column_name": "plan",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": "'free'::text"
+      },
+      {
+        "table_name": "user_entitlements",
+        "column_name": "deployment_limit",
+        "udt_name": "int4",
+        "is_nullable": "NO",
+        "column_default": "1"
+      },
+      {
+        "table_name": "user_entitlements",
+        "column_name": "created_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "user_entitlements",
+        "column_name": "updated_at",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "user_entitlements",
+        "column_name": "managed_ai_enabled",
+        "udt_name": "bool",
+        "is_nullable": "NO",
+        "column_default": "false"
+      }
+    ],
+    "constraints": [
+      {
+        "relname": "profiles",
+        "definition": "CHECK (((is_seeded = false) OR (user_id = '00000000-0000-0000-0000-000000000001'::uuid)))"
+      },
+      {
+        "relname": "profiles",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "relname": "profiles",
+        "definition": "FOREIGN KEY (suspended_by) REFERENCES auth.users(id)"
+      },
+      {
+        "relname": "subscriptions",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "relname": "subscriptions",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      },
+      {
+        "relname": "user_entitlements",
+        "definition": "CHECK ((deployment_limit >= 0))"
+      },
+      {
+        "relname": "user_entitlements",
+        "definition": "PRIMARY KEY (user_id)"
+      },
+      {
+        "relname": "user_entitlements",
+        "definition": "CHECK ((plan = ANY (ARRAY['free'::text, 'creator'::text, 'pro'::text])))"
+      },
+      {
+        "relname": "user_entitlements",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      }
+    ],
+    "ddl_hooks": [
+      {
+        "evtname": "issue_pg_graphql_access",
+        "evtevent": "ddl_command_end",
+        "evtenabled": "O"
+      },
+      {
+        "evtname": "issue_graphql_placeholder",
+        "evtevent": "sql_drop",
+        "evtenabled": "O"
+      },
+      {
+        "evtname": "pgrst_ddl_watch",
+        "evtevent": "ddl_command_end",
+        "evtenabled": "O"
+      },
+      {
+        "evtname": "pgrst_drop_watch",
+        "evtevent": "sql_drop",
+        "evtenabled": "O"
+      },
+      {
+        "evtname": "issue_pg_cron_access",
+        "evtevent": "ddl_command_end",
+        "evtenabled": "O"
+      },
+      {
+        "evtname": "issue_pg_net_access",
+        "evtevent": "ddl_command_end",
+        "evtenabled": "O"
+      }
+    ],
+    "legacy": [
+      {
+        "relname": "cv",
+        "relrowsecurity": false,
+        "anon_read": true
+      },
+      {
+        "relname": "cv_files",
+        "relrowsecurity": false,
+        "anon_read": true
+      },
+      {
+        "relname": "cvs",
+        "relrowsecurity": false,
+        "anon_read": true
+      }
+    ]
+  }
+}
