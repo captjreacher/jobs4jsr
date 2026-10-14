@@ -220,3 +220,113 @@ Private .env still has generated-letter upload false, no publisher credentials o
 
 
 Preflight validation: **46 Python tests and 12 Node/PostgreSQL tests pass**. Integration harness plan mode ran locally without network access; no production JWT/API tests were executed. Both migration checksums remained unchanged. All 27 private hashes, SQLite jobs/runs/status_history, named stash object and Windows task XML remain unchanged. No application code or production configuration changes are included in this branch. If a forbidden membership negative test ever succeeds after approval, stop immediately and have the administrator remove only the unexpected test entitlement before any real publication; do not claim a passed denial or continue testing.
+
+
+## Migration prerequisite resolution after PR 4
+
+This is a focused follow-up; it supersedes earlier statements that backup metadata or the canonical migration runner were unavailable. PR 4 is merged at main `5e34ad72a1a155ad3ae2dbc18d515d1b99de7739`; local main was synchronised before this branch. Phase 1 development, live discovery and the full preflight were not repeated.
+
+| Gate | Current result | Evidence |
+|---|---|---|
+| Database backup | **NOT VERIFIED** | Existing Management API credential works, but exposes no recovery point; no full restore was performed |
+| Migration runner | **NOT READY** | Canonical linked CLI/history and exact dry-run plan established; Storage DDL ownership is missing |
+| Migration compatibility | **BLOCKED** | Isolated reproduction proves unchanged migration 1 fails at Storage policy creation for the observed non-owner role |
+| Applying the migrations | **NO-GO** | Both a verified recovery path and a Storage-authorised execution context are still required |
+
+### Confirmed backup metadata and recovery limits
+
+Using the **existing** Supabase CLI credential from Windows Credential Manager target `Supabase CLI:supabase`, the read-only Management API GET `/v1/projects/qnvihygrnfgpmsznayje/database/backups` returned HTTP 200:
+
+```json
+{
+  "region": "ap-southeast-2",
+  "walg_enabled": true,
+  "pitr_enabled": false,
+  "backups": [],
+  "physical_backup_data": {}
+}
+```
+
+The credential was read only into process memory and was never printed or saved. Sanitised evidence is local/ignored at `tmp/migration-blockers/backups.json`. `walg_enabled=true` confirms a backend physical-backup mechanism flag, **not** an available or usable customer recovery point. No appropriate recovery timestamp, daily-backup status, actual retention window or prior successful restore evidence is exposed. PITR is explicitly disabled. Do not infer the billing plan, customer restore entitlement or managed-backup retention from project health or that flag.
+
+Current official [Supabase backup documentation](https://supabase.com/docs/guides/platform/backups) describes managed daily backups on paid plans, plan-dependent retention, and restoring through Database > Backups; PITR must be separately enabled. Those product capabilities do not establish this project's recovery point. An in-place restore makes the shared project inaccessible and rolls back the shared database, including other FMB/Funk My Fans data. It is not a Jobs4JSR-only rollback. Storage bytes are outside database backups; a database restore may leave metadata inconsistent with deleted or newer object bytes. A physical backup may not be directly downloadable. Confirm role-password/replication requirements and coordinate all shared writers before any production restore.
+
+**A separate logical backup is needed before migration unless the owner can supply verified, adequate managed recovery evidence.** No new backup/PITR plan was enabled and no paid/new-project restore was attempted. Docker is installed but its Linux daemon is unavailable; native psql/pg_dump and a persistent linked-project DB password are not present. Thus the standard CLI dump/local full-project restore path is not currently executable here. The previous PGlite schema tests are not a restoration of production data and are not backup verification.
+
+Next recovery step: obtain owner-approved evidence of a usable managed recovery point and documented restoration availability, or approve a scoped logical-backup/non-production restore exercise. Any new Supabase project, paid feature or production restore requires a separate scoped approval and cost confirmation before proceeding. This task grants no such approval. A complete backup should cover roles/schema/data/Auth/Storage metadata and separately preserve required Storage bytes; verify restoration in an approved isolated environment and record counts, constraints, policies and recovery limitations. Existing application records are not exported to GitHub.
+
+### Existing runner identified and bounded dry-run verified
+
+Canonical linked checkout: `C:\DEV_LOCAL\funkmyfans`, repository `captjreacher/funkmyfans`; `supabase/.temp/project-ref` equals **qnvihygrnfgpmsznayje**. It contains 40 migration files, through `20260715011744_narrow_active_sync_all_index`. `supabase migration list --linked --workdir C:\DEV_LOCAL\funkmyfans` succeeded using the existing logged-in CLI and listed matching local/remote versions for all 40. The connection uses the provider's temporary CLI login role; no new persistent password, PAT, service-role key or application secret was configured. Do not run CLI debug/trace logging because it can expose credentials.
+
+The repository's GitHub Actions contain Creator Cockpit smoke/typecheck/build, not a database deployment runner. Funk My Brand's separate landing-page workflow deploys Pages, not database migrations. Thus the located runner is **operator-driven linked Supabase CLI**, not an established GitHub Actions DB pipeline. Matching history proves the canonical checkout is aligned; it does not prove which tool originally applied every historical migration or formal approval of a new privileged context.
+
+An ignored isolated runner directory `tmp/migration-blockers/runner` copies the existing 40 files/link metadata plus only the two unchanged Jobs4JSR files. The canonical checkout was not changed. Actual command:
+
+```powershell
+supabase db push --linked --workdir tmp/migration-blockers/runner --dry-run
+```
+
+returned exit 0 and explicitly reported that migrations were **not** pushed. Its only pending files, in order, were:
+
+1. `20261014034534_jobs4jsr_private_board.sql`
+2. `20261014041250_jobs4jsr_health.sql`
+
+This resolves the earlier unknown history/order gate. Dry-run selects files and connects; it does **not** execute SQL or verify DDL privileges. Existing Management API/CLI credential sources and history are established, but the execution context below remains a blocker.
+
+### Newly confirmed Storage ownership blocker
+
+Read-only role checks return current role `postgres`, `rolsuper=false`, public-schema CREATE=true, auth.users REFERENCES=true, storage.buckets INSERT=true and migration-ledger INSERT=true. `storage.objects` is owned by **supabase_storage_admin**. Both `postgres` and `cli_login_postgres` have no USAGE ownership membership; postgres also has no MEMBER or SET membership in that owner role, and neither has inherited supabase_admin privilege. Storage owner itself lacks CREATE on public and REFERENCES on auth.users, so switching the whole migration to that role is not a verified workaround.
+
+Migration 1's four `CREATE POLICY ... ON storage.objects` statements require table ownership (or equivalent privileged DDL authority); ordinary SELECT/INSERT/UPDATE grants do not provide it. `web/tests/migration-runner.test.mjs` reproduces this ownership split in isolated PostgreSQL, grants the migration actor all needed preceding public/Auth/bucket permissions, and executes the **unchanged migration 1** inside a transaction. It fails with `must be owner of relation objects`; rollback leaves no Jobs4JSR membership table or bucket. This is an execution compatibility blocker that earlier superuser-owned Storage stubs did not cover. Existing RLS/default-grant tests still pass; their logical policy correctness does not grant production DDL ownership.
+
+A platform migration endpoint might use a different role, but that is **unverified** and must not be assumed from an available MCP apply-migration tool. Before READY, the owner/DBA must confirm an existing approved Storage-owning release context and test the same unchanged SQL in an equivalent isolated environment. Do not add broad role memberships, transfer Storage ownership, loosen RLS, grant a service key to the app or rewrite these reviewed files as an unapproved workaround. If no suitable existing context exists, a separately reviewed execution/migration change and explicit owner approval are required.
+
+### File compatibility and preserved checksums
+
+No Jobs4JSR tables or bucket exist; neither migration is applied. Neither file touches legacy CV tables/functions/grants or existing Auth triggers. Public tables use RLS and explicit revokes/grants; proposed bucket is private. The same SHA256 values remain:
+
+- Migration 1: `DE174304D0E96579604AB969DD6EB682FF39777ABCF670D026FA4622B0A00C33`
+- Migration 2: `5385B79A26671A688F23D71485CA222D1091AFDD6AE942699D77E90EA7A7752D`
+
+RLS logic and schema names pass their earlier isolated checks, but whole-migration compatibility is **BLOCKED** by the owner-context issue. Existing services cannot be certified unaffected by a migration that fails mid-file; use a verified atomic runner and stop on failure, with audit/checkpoint after each file. Do not retry against partial objects blindly. Maintain migration history through the approved runner; do not manually erase or repair versions. Record file checksum, executor identity, commit, timestamp, applied version and verification outcome in the release audit. Empty additive rollback remains a separately reviewed migration; with any real data, disable publishing/membership access and reconcile/export history before cleanup.
+
+### Auth and deployment dependencies
+
+All three production Auth provisioning function definitions still exactly match the metadata fixture: profile insertion, active/free subscription insertion and free entitlement seeding. No users were created. These shared side effects remain unavoidable when creating accounts through that path. Jobs4JSR itself does not write CV tables; the new profile's user_id remains NULL under the existing trigger. Provisioning is not guaranteed side-effect-free, and requires owner acceptance and checks of Auth mail/hooks/external onboarding before creating Jess or the publisher. Account-deletion FK/cascade risks documented above remain applicable. Migration application alone creates no Auth account and does not invoke these user INSERT triggers.
+
+Existing Cloudflare access was usable again through `wrangler whoami` and the existing OAuth session, without login, scope expansion or secret provisioning. Fresh route/domain GETs succeed: no zone route patterns, no Jess binding; current domains include apex, billing, billing-api, opps and workspace. Exact Jess DNS GET still fails code 10000. Thus route/domain read access is restored, **DNS availability remains a separate deployment blocker** and is not a reason to infer an unused hostname. Nothing was deployed/bound and no existing mapping was changed.
+
+### Exact future commands and approvals
+
+These are prepared commands, not permission to execute. The dry-run evidence above already covers file selection. **Do not remove `--dry-run` until both recovery and Storage execution-context gates are resolved.** If the approved runner is not the CLI context tested here, use that runner's separately verified procedure instead.
+
+```powershell
+$ErrorActionPreference='Stop'
+function Invoke-ReleaseCLI {
+  param([string[]]$ReleaseArgs)
+  & supabase @ReleaseArgs
+  if ($LASTEXITCODE -ne 0) { throw 'Supabase release command failed; stop and inspect before any retry.' }
+}
+# Original checksum-preserving source files:
+Get-FileHash C:\DEV_LOCAL\jobs4jsr\supabase\migrations\*.sql
+# Read-only selected plan; already executed:
+Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner','--dry-run')
+
+# AFTER backup verification, approved execution context and migration-stage approval:
+# Hold migration 2 out of the isolated runner so checkpoint 1 precedes it.
+Move-Item -LiteralPath C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner\supabase\migrations\20261014041250_jobs4jsr_health.sql -Destination C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\health.pending.sql
+Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner','--dry-run')
+# Check exactly migration 1 is pending and executor has the verified Storage DDL authority.
+Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner')
+# Verify grants/RLS/bucket/history before continuing.
+if ((Read-Host 'Type VERIFIED_MIGRATION_1 after owner checkpoint approval') -ne 'VERIFIED_MIGRATION_1') { throw 'Checkpoint 1 not approved' }
+Move-Item -LiteralPath C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\health.pending.sql -Destination C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner\supabase\migrations\20261014041250_jobs4jsr_health.sql
+Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner','--dry-run')
+# Check exactly migration 2 is pending, then run only after checkpoint approval.
+Invoke-ReleaseCLI -ReleaseArgs @('db','push','--linked','--workdir','C:\DEV_LOCAL\jobs4jsr\tmp\migration-blockers\runner')
+```
+
+No migration release should start with the currently observed insufficient role. The exact owner actions needed next are: (1) approve/supply a verified backup/recovery path, with a scoped cost-approved non-production restore if required; (2) identify/approve an existing execution context with Storage policy ownership and validate atomicity/audit; (3) only after both are evidenced, approve applying migration 1 then migration 2 with checkpoints. Creating users, publishing facts, hosted letters, Workers/DNS and cloud discovery remain separate, unauthorised stages. Letter uploads stay false.
+
+Validation for this focused follow-up: 13 Node/PostgreSQL tests and five existing integration-harness guard tests pass. No discovery or full production preflight was rerun. The new ownership test expects the observed DDL failure and verifies rollback; passing that test does not mean production migrations can apply. All private hashes, SQLite history, named stash and Windows task XML remain unchanged; both original migration files remain byte-for-byte unchanged.
