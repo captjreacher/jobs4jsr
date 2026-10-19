@@ -1,5 +1,5 @@
 import { openLetterEditor, clearLetterDrafts } from "./cover-letter.js";
-import { groupJobs, syncStatus, catalogueSections } from "./catalogue.js";
+import { groupJobs, syncStatus, catalogueSections, recommendations } from "./catalogue.js";
 let observer;
 const observed = new Set();
 const expanded = new Map();
@@ -69,6 +69,7 @@ function render() {
   $("count").textContent =
     `${shown.length} ${shown.length === 1 ? "job" : "jobs"} · New opportunities first`;
   const containers = new Map();
+  const picks = new Set(recommendations(shown).map(job => job.id));
   const groups = groupJobs(shown);
   for (const { key, label, open } of catalogueSections) {
     const section = el("details", undefined, "catalogue-section");
@@ -181,7 +182,7 @@ function render() {
     card.append(actions);
     containers.get(j.id).append(card);
     if (!j.seen_at) observer.observe(card);
-    if (v.recommended && !j.dismissed && v.vacancy_state === "open") {
+    if (picks.has(j.id)) {
       const pick = el("article", undefined, "card");
       pick.append(
         el("p", v.employer, "company"),
@@ -191,6 +192,8 @@ function render() {
       $("recommendations").append(pick);
     }
   }
+  if (!picks.size)
+    $("recommendations").append(el("p", "No top recommendations in this view. Browse the job catalogue below.", "muted"));
   if (!shown.length)
     $("jobs").append(
       el(

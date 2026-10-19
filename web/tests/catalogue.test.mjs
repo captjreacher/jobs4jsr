@@ -1,10 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupJobs, syncStatus, catalogueSections } from "../public/catalogue.js";
+import { groupJobs, syncStatus, catalogueSections, recommendations } from "../public/catalogue.js";
 import { filtered } from "../public/app.js";
 const now = new Date("2026-10-19T00:00:00Z");
 const job = (id, found, seen_at = "2026-10-18T00:00:00Z", flags = {}) => ({
   id, seen_at, ...flags, vacancy: { found, title: "Waiter", employer: "Hotel", location: "CBD" },
+});
+
+for (const count of [0, 1, 3]) {
+  test(`${count} recommendations leave all eleven catalogue jobs accessible`, () => {
+    const rows = Array.from({ length: 11 }, (_, i) => ({
+      ...job(String(i), "2026-10-14", null),
+      vacancy: { title: "Waiter", found: "2026-10-14", recommended: i < count, vacancy_state: "open" },
+    }));
+    assert.equal(recommendations(rows).length, count);
+    assert.equal(Object.values(groupJobs(filtered(rows, "all"), now)).flat().length, 11);
+  });
+}
+
+test("recommendations obey filters and exclude dismissed and closed adverts", () => {
+  const rows = [
+    { ...job("open", "2026-10-14"), vacancy: { employer: "Hotel", recommended: true, vacancy_state: "open" } },
+    { ...job("dismissed", "2026-10-14"), dismissed: true, vacancy: { recommended: true, vacancy_state: "open" } },
+    { ...job("closed", "2026-10-14"), vacancy: { recommended: true, vacancy_state: "closed" } },
+  ];
+  assert.deepEqual(recommendations(rows).map(j => j.id), ["open"]);
+  assert.equal(recommendations(filtered(rows, "all", { employer: "Other" })).length, 0);
 });
 test("unseen overrides age and discovery-run flag; seven calendar days inclusive; no duplicates", () => {
   const rows = [job("new", "2020-01-01", null), job("today", "2026-10-19"), job("boundary", "2026-10-12"), job("old", "2026-10-11"), job("unknown", undefined)];

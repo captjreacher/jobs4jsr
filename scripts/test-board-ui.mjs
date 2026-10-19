@@ -1,6 +1,8 @@
 // Run npm run preview first. Supply PLAYWRIGHT_MODULE if Playwright is bundled elsewhere.
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
+import { assertBoardContents } from './board-assertions.mjs';
+import { filtered } from '../web/public/app.js';
 import { mkdir } from 'node:fs/promises';
 const browser = await chromium.launch({headless:true,channel:"msedge"});
 await mkdir('tmp/catalogue-evidence',{recursive:true});
@@ -71,5 +73,21 @@ for (const width of [1280,390]) {
  await page.close();
 
 
+}
+// Regression: zero, one and multiple recommendations must never gate the catalogue.
+for (const width of [1280, 390]) {
+ for (const count of [0, 1, 3]) {
+  const page = await browser.newPage({viewport:{width,height:900}});
+  const rows = Array.from({length:11}, (_,i)=>({
+   id: `fixture-${i}`, seen_at: '2026-01-01',
+   vacancy:{title:`Waiter ${i}`, employer:'Fictional Hotel', location:'CBD', found:'2026-10-14', match:80-i, recommended:i<count, vacancy_state:'open'}
+  }));
+  await page.route('**/api/**',route=>route.fulfill({json:route.request().url().endsWith('/health')?{sync:[],sources:[]}:rows}));
+  await page.goto('http://127.0.0.1:8790');
+  await page.locator('#board').waitFor({state:'visible'});
+  await assertBoardContents(page, filtered(rows,'all'));
+  console.log(`PASS ${width}px: ${count} recommendations, 11 independent catalogue jobs and matching counts`);
+  await page.close();
+ }
 }
 await browser.close();
