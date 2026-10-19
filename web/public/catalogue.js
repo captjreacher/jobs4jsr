@@ -4,6 +4,10 @@ export const catalogueSections = [
   { key: "earlier", label: "EARLIER OPPORTUNITIES", open: false },
 ];
 
+export function recommendations(rows) {
+  return rows.filter(job => job.vacancy.recommended && !job.dismissed && job.vacancy.vacancy_state === "open");
+}
+
 // Discovery is a date, so use Auckland calendar days rather than UTC midnights.
 function day(value) {
   const parts = new Intl.DateTimeFormat("en-CA", {
