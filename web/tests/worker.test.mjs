@@ -250,3 +250,24 @@ test("expired access refreshes and revalidates membership before serving jobs", 
     global.fetch = old;
   }
 });
+
+test("seen records server time once, without changing Saved/Applied/Dismissed", async () => {
+  const old = global.fetch;
+  const writes = [];
+  global.fetch = async (url, options) => {
+    if (url.includes("jobs4jsr_members")) return json(membership);
+    if (url.includes("/auth/")) return json({ id: user });
+    if (url.includes("jobs4jsr_jobs")) return json([{vacancy:{}}]);
+    writes.push({url,...options});
+    return new Response(null,{status:204});
+  };
+  try {
+    const before = Date.now();
+    assert.equal((await handle(req(`/jobs/${id}/decision`, "POST", {action:"seen",seen_at:"forged"}),env)).status,200);
+    assert.match(writes[1].url,/&seen_at=is.null$/);
+    const patch = JSON.parse(writes[1].body);
+    assert.deepEqual(Object.keys(patch),["seen_at"]);
+    assert.ok(Date.parse(patch.seen_at)>=before && Date.parse(patch.seen_at)<=Date.now());
+    assert.equal(writes[0].headers.Prefer,"resolution=ignore-duplicates");
+  } finally { global.fetch=old; }
+});

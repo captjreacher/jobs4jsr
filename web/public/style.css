@@ -175,6 +175,25 @@ nav {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
+.catalogue-section { margin: 0 0 18px; border-top: 1px solid #e3deeb; }
+.catalogue-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 12px 4px;
+  color: var(--purple);
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: 1px;
+  cursor: pointer;
+  list-style: none;
+}
+.catalogue-section summary::-webkit-details-marker { display: none; }
+.catalogue-section summary:focus-visible { outline: 3px solid #9580d8; outline-offset: 3px; }
+.chevron { font-size: 24px; transform: rotate(-90deg); }
+.catalogue-section[open] .chevron { transform: rotate(0); }
 .card {
   background: white;
   border: 1px solid #e3deeb;

@@ -189,6 +189,7 @@ export async function handle(request, env) {
     const id = path.split("/")[3],
       body = await request.json(),
       actions = {
+        seen: ["seen_at", new Date().toISOString()],
         save: ["saved", true],
         unsave: ["saved", false],
         dismiss: ["dismissed", true],
@@ -226,7 +227,7 @@ export async function handle(request, env) {
     if (r.ok)
       r = await upstream(
         env,
-        `/rest/v1/jobs4jsr_decisions?job_id=eq.${id}`,
+        `/rest/v1/jobs4jsr_decisions?job_id=eq.${id}${field === "seen_at" ? "&seen_at=is.null" : ""}`,
         token,
         { method: "PATCH", body: JSON.stringify({ [field]: value }) },
       );

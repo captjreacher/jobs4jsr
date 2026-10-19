@@ -1,4 +1,8 @@
 import { openLetterEditor, clearLetterDrafts } from "./cover-letter.js";
+import { groupJobs, syncStatus, catalogueSections } from "./catalogue.js";
+let observer;
+const observed = new Set();
+const expanded = new Map();
 let jobs = [],
   tab = "all";
 const $ = (id) => document.getElementById(id);
@@ -58,14 +62,49 @@ function render() {
     location: $("location").value,
     dismissed: $("dismissed").checked,
   });
+  observer?.disconnect();
+  $("jobs").querySelectorAll("article").forEach(card => clearTimeout(card.seenTimer));
   $("jobs").replaceChildren();
   $("recommendations").replaceChildren();
   $("count").textContent =
     `${shown.length} ${shown.length === 1 ? "job" : "jobs"} · New opportunities first`;
+  const containers = new Map();
+  const groups = groupJobs(shown);
+  for (const { key, label, open } of catalogueSections) {
+    const section = el("details", undefined, "catalogue-section");
+    section.open = expanded.get(key) ?? open;
+    const summary = el("summary", `${label} · ${groups[key].length}`);
+    const chevron = el("span", "⌄", "chevron");
+    chevron.setAttribute("aria-hidden", "true");
+    summary.append(chevron);
+    section.append(summary);
+    const cards = el("div", undefined, "jobs");
+    if (!groups[key].length) cards.append(el("p", "No jobs in this section.", "muted"));
+    section.append(cards);
+    section.ontoggle = () => expanded.set(key, section.open);
+    $("jobs").append(section);
+    for (const job of groups[key]) containers.set(job.id, cards);
+  }
+  observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      clearTimeout(entry.target.seenTimer);
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        entry.target.seenTimer = setTimeout(async () => {
+          const id = entry.target.dataset.jobId;
+          if (document.visibilityState !== "visible" || !entry.target.isConnected || observed.has(id)) return;
+          observed.add(id);
+          try {
+            await api(`/jobs/${id}/decision`, { method: "POST", body: JSON.stringify({ action: "seen" }) });
+          } catch { observed.delete(id); }
+        }, 1000);
+      }
+    }
+  }, { threshold: [0, 0.5] });
   for (const j of shown) {
     const v = j.vacancy,
       card = el("article", undefined, "card");
-    if (v.is_new) card.append(el("span", "NEW", "badge"));
+    card.dataset.jobId = j.id;
+    if (!j.seen_at) card.append(el("span", "NEW", "badge"));
     if (v.recommended) card.append(el("span", "TOP PICK", "badge"));
     if (v.vacancy_state === "closed")
       card.append(el("span", "ADVERT CLOSED", "badge"));
@@ -140,7 +179,8 @@ function render() {
       actions.append(b);
     }
     card.append(actions);
-    $("jobs").append(card);
+    containers.get(j.id).append(card);
+    if (!j.seen_at) observer.observe(card);
     if (v.recommended && !j.dismissed && v.vacancy_state === "open") {
       const pick = el("article", undefined, "card");
       pick.append(
@@ -162,26 +202,14 @@ function render() {
 }
 async function load() {
   try {
-    jobs = await api("/jobs");
+    const previous = new Map(jobs.map(j => [j.id, j.seen_at]));
+    jobs = (await api("/jobs")).map(j => previous.has(j.id) ? { ...j, seen_at: previous.get(j.id) } : j);
     try {
       const health = await api("/health");
       const last = health.sync[0]?.last_successful_sync;
-      const latest = new Map();
-      for (const row of health.sources.sort((a, b) =>
-        (b.payload.checked_at || "").localeCompare(a.payload.checked_at || ""),
-      )) {
-        if (!latest.has(row.source)) latest.set(row.source, row.payload);
-      }
-      const failed = [...latest]
-        .filter(([, check]) => check.status !== "success")
-        .map(([name]) => name);
-      $("health").textContent =
-        (last
-          ? `Last synchronised ${last}. Results remain available while the discovery PC is offline.`
-          : "Not yet synchronised.") +
-        (failed.length ? ` Checks incomplete: ${failed.join(", ")}.` : "");
+      $("health").textContent = syncStatus(last);
     } catch {
-      $("health").textContent = "Synchronisation health unavailable.";
+      $("health").textContent = "Update time unavailable.";
     }
     $("login").hidden = true;
     $("board").hidden = false;
@@ -212,6 +240,10 @@ async function load() {
   }
 }
 if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    $("jobs").querySelectorAll("article").forEach(card => clearTimeout(card.seenTimer));
+    if (document.visibilityState === "visible" && !$("board").hidden) render();
+  });
   $("login-form").onsubmit = async (e) => {
     e.preventDefault();
     const button = e.target.querySelector("button");
@@ -234,6 +266,9 @@ if (typeof document !== "undefined") {
   $("logout").onclick = async () => {
     await api("/logout", { method: "POST" });
     clearLetterDrafts();
+    observer?.disconnect();
+    observed.clear();
+    expanded.clear();
     jobs = [];
     $("jobs").replaceChildren();
     await load();
