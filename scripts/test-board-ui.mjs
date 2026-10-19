@@ -73,4 +73,3 @@ for (const width of [1280,390]) {
 
 }
 await browser.close();
-
