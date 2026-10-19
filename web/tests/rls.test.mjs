@@ -58,6 +58,7 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
         false,
       );
   }
+  await db.exec(await readFile("supabase/optional/jobs4jsr_seen_review.sql", "utf8"));
   // Hosted letters are an optional owner-only enhancement, never a base-migration side effect.
   assert.equal((await db.query("select count(*)::int as count from storage.buckets where id='jobs4jsr-letters'")).rows[0].count,0);
   await db.exec(await readFile('supabase/optional/jobs4jsr_letters_owner_only.sql','utf8'));
@@ -94,7 +95,7 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
     1,
   );
   await db.exec(
-    `insert into jobs4jsr_decisions values('${job}','${owner}',true,true,true)`,
+    `insert into jobs4jsr_decisions(job_id,owner_id,saved,dismissed,applied) values('${job}','${owner}',true,true,true)`,
   );
   assert.equal(
     (await db.query("update jobs4jsr_jobs set vacancy='{}' returning *")).rows
@@ -112,7 +113,7 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
   );
   await assert.rejects(
     db.exec(
-      `insert into jobs4jsr_decisions values('${job}','${owner}',false,false,false) on conflict(job_id) do update set saved=false`,
+      `insert into jobs4jsr_decisions(job_id,owner_id,saved,dismissed,applied) values('${job}','${owner}',false,false,false) on conflict(job_id) do update set saved=false`,
     ),
   );
   await db.exec(
@@ -125,6 +126,9 @@ test("real PostgreSQL RLS separates reader, sync, uninvited users and letters", 
   await db.exec(`select set_config('request.jwt.claim.sub','${owner}',false)`);
   const decision = (await db.query("select * from jobs4jsr_decisions")).rows[0];
   assert.ok(decision.saved && decision.dismissed && decision.applied);
+  assert.equal(decision.seen_at, null);
+  await db.exec(`update jobs4jsr_decisions set seen_at=now() where seen_at is null`);
+  assert.ok((await db.query("select seen_at from jobs4jsr_decisions")).rows[0].seen_at);
   await db.exec(`update jobs4jsr_decisions set dismissed=false`);
   assert.equal(
     (await db.query("select dismissed from jobs4jsr_decisions")).rows[0]

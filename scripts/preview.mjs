@@ -7,6 +7,7 @@ const demo = [
     id,
     owner_id: "fictional-preview",
     saved: true,
+    seen_at: new Date().toISOString(),
     vacancy: {
       employer: "Fictional Harbour Hotel",
       title: "Food & Beverage Attendant",
@@ -16,7 +17,7 @@ const demo = [
       job_type: "Part-time",
       match: 85,
       why: "Fictional preview of customer service and teamwork matching.",
-      found: "2026-10-14",
+      found: new Date().toLocaleDateString("en-CA", {timeZone: "Pacific/Auckland"}),
       last_verified: "2026-10-14",
       recommended: true,
       is_new: true,
@@ -26,19 +27,21 @@ const demo = [
   },
   {
     id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    dismissed: true,
+    seen_at: new Date().toISOString(),
+    dismissed: false,
     vacancy: {
       employer: "Fictional Cafe",
       title: "Cafe Assistant",
       location: "Ponsonby",
       match: 70,
       source: "Demonstration only",
-      found: "2026-10-14",
+      found: "2026-09-01",
       last_verified: "2026-10-14",
       vacancy_state: "verification_unknown",
     },
   },
 ];
+demo.push({ ...demo[0], id: "cccccccc-cccc-cccc-cccc-cccccccccccc", seen_at: null, saved: false, vacancy: { ...demo[0].vacancy, employer: "Fictional New Restaurant", recommended: false } });
 http
   .createServer(async (req, res) => {
     try {
@@ -52,6 +55,7 @@ http
           const action = JSON.parse(body).action;
           const job = demo.find((j) => j.id === path.split("/")[3]);
           const map = {
+            seen: ["seen_at", new Date().toISOString()],
             save: ["saved", true],
             unsave: ["saved", false],
             dismiss: ["dismissed", true],
@@ -68,7 +72,7 @@ http
               ? {
                   sync: [
                     {
-                      last_successful_sync: "Fictional preview — not connected",
+                      last_successful_sync: new Date(Date.now() - 86400000).toISOString(),
                     },
                   ],
                   sources: [],
@@ -81,6 +85,9 @@ http
       const files = {
         "/": "index.html",
         "/app.js": "app.js",
+        "/catalogue.js": "catalogue.js",
+        "/cover-letter.js": "cover-letter.js",
+        "/favicon.svg": "favicon.svg",
         "/style.css": "style.css",
       };
       if (!files[path]) {
@@ -90,7 +97,7 @@ http
       }
       res.setHeader(
         "Content-Type",
-        path.endsWith(".js")
+        path.endsWith(".svg") ? "image/svg+xml" : path.endsWith(".js")
           ? "text/javascript"
           : path.endsWith(".css")
             ? "text/css"
