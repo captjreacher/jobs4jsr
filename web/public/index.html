@@ -68,10 +68,13 @@
             ><input type="checkbox" id="dismissed" />Show dismissed</label
           >
         </div>
-        <p id="health" class="muted"></p>
         <h2>Top recommendations</h2>
         <div id="recommendations" class="jobs"></div>
-        <h2>Job catalogue</h2>
+        <div class="catalogue-toolbar">
+          <div><h2>Job catalogue</h2><p id="health" class="muted"></p></div>
+          <button id="run-update" class="primary" type="button" disabled>Run Update</button>
+        </div>
+        <p id="update-status" class="muted" role="status" aria-live="polite"></p>
         <p id="count" class="muted"></p>
         <div id="jobs"></div>
         <p class="muted footer">

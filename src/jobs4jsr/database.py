@@ -12,6 +12,7 @@ def connect(path):
       last_successful_check TEXT, payload TEXT NOT NULL, PRIMARY KEY(run_id,source));
     CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS vacancy_events(id INTEGER PRIMARY KEY,job_id INTEGER,run_id TEXT,kind TEXT,changed TEXT,payload TEXT);
+    CREATE TABLE IF NOT EXISTS update_checkpoints(run_id TEXT PRIMARY KEY, summary TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS sync_runs(id INTEGER PRIMARY KEY,attempted TEXT,status TEXT,error TEXT);
     """)
     return c

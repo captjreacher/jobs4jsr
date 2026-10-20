@@ -10,7 +10,7 @@ def reconcile(c,root,profile,found,notes,run_id,now,today):
  namespace=c.execute("SELECT value FROM metadata WHERE key='namespace'").fetchone()
  if not namespace:
   namespace=(str(uuid.uuid4()),);c.execute("INSERT INTO metadata VALUES('namespace',?)",namespace)
- previous=database.jobs(c);new=[];changed=[];duplicates=0
+ previous=database.jobs(c);new=[];changed=[];duplicates=0;refreshed=set();prior_ids={j['id'] for j in previous}
  checks={x.source:x for x in getattr(notes,'checks',[])}
  def save(j):
   c.execute('UPDATE jobs SET payload=? WHERE id=?',(json.dumps({k:v for k,v in j.items() if k not in ('id','status')}),j['id']))
@@ -25,11 +25,13 @@ def reconcile(c,root,profile,found,notes,run_id,now,today):
   if not match:
    if check:check.excluded+=1
    if old:
+    refreshed.add(old['id'])
     old['vacancy_state']='no_longer_qualifies';old['last_verified']=now;save(old)
    continue
   incoming['match'],incoming['why']=match
   if check:check.qualified+=1
   if old:
+   if old['id'] in prior_ids:refreshed.add(old['id'])
    duplicates+=1
    if check:check.duplicates+=1
    before=digest(old);prior_state=old.get('vacancy_state')
@@ -53,6 +55,7 @@ def reconcile(c,root,profile,found,notes,run_id,now,today):
   for url,state in check.observations.items():
    for old in previous:
     if old['url']==url and state=='closed' and old.get('last_seen_run')!=run_id:
+     refreshed.add(old['id'])
      if old.get('vacancy_state')!='closed':old.update(vacancy_state='closed',changed_at=now,last_verified=now);event(old,'closed');changed.append(old)
      save(old)
   # A failed check creates uncertainty, not a closed advertisement.
@@ -66,4 +69,4 @@ def reconcile(c,root,profile,found,notes,run_id,now,today):
   if not j.get('letter_docx'):
    j['letter_md'],j['letter_docx']=letters.generate(j,profile,root,today)
   save(j)
- return dict(new=len(new),duplicates=duplicates,changed=len(changed),catalogue=[j for j in database.jobs(c) if j.get('vacancy_state','open')!='no_longer_qualifies'])
+ return dict(refreshed=len(refreshed),new=len(new),duplicates=duplicates,changed=len(changed),catalogue=[j for j in database.jobs(c) if j.get('vacancy_state','open')!='no_longer_qualifies'])
