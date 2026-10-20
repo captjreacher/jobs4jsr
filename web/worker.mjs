@@ -151,7 +151,27 @@ export async function handle(request, env) {
   }
   if (!user) return reply({ error: "Please sign in" }, 401);
   let result;
-  if (path === "/api/health" && request.method === "GET") {
+  if (["/api/update-requests", "/api/update-status"].includes(path)) {
+    if (env.MANUAL_UPDATES_ENABLED !== "true")
+      return reply({ error: "Manual updates are not enabled yet." }, 503);
+    const enqueue = path === "/api/update-requests" && request.method === "POST";
+    if (!enqueue && !(path === "/api/update-status" && request.method === "GET"))
+      return reply({ error: "Method not allowed" }, 405);
+    let payload = {};
+    if (enqueue) {
+      try { payload = await request.json(); } catch { return reply({ error: "Invalid request" }, 400); }
+      if (!payload || Object.keys(payload).join() !== "key" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(payload.key))
+        return reply({ error: "Invalid request key" }, 400);
+    }
+    const r = await upstream(env, `/rest/v1/rpc/jobs4jsr_${enqueue ? "request_update" : "update_status"}`, token, {
+      method: "POST", body: JSON.stringify(enqueue ? { p_key: payload.key } : {}),
+    });
+    if (r.ok) {
+      const data = await r.json();
+      const safeRequest = (row) => row && Object.fromEntries(["id","state","created_at","finished_at","summary","error_code"].map(key => [key,row[key]]));
+      result = reply(enqueue ? safeRequest(data) : { ...data, request: safeRequest(data.request) }, enqueue ? 202 : 200);
+    } else result = reply({ error: "Update service unavailable. Please try again." }, r.status === 403 ? 403 : 503);
+  } else if (path === "/api/health" && request.method === "GET") {
     const sync = await upstream(
         env,
         "/rest/v1/jobs4jsr_sync_health?select=*",

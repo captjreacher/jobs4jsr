@@ -1,5 +1,7 @@
 import { openLetterEditor, clearLetterDrafts } from "./cover-letter.js";
 import { groupJobs, syncStatus, catalogueSections, recommendations } from "./catalogue.js";
+import { createUpdateController } from "./updates.js";
+let updates;
 let observer;
 const observed = new Set();
 const expanded = new Map();
@@ -234,7 +236,9 @@ async function load() {
       select.value = old;
     }
     render();
+    updates?.start();
   } catch (e) {
+    updates?.stop();
     if ([401,403].includes(e.status)) clearLetterDrafts();
     $("message").textContent = e.status === 401 ? "" : e.message;
     $("login").hidden = false;
@@ -243,6 +247,7 @@ async function load() {
   }
 }
 if (typeof document !== "undefined") {
+  updates = createUpdateController({ api, onComplete: load, document });
   document.addEventListener("visibilitychange", () => {
     $("jobs").querySelectorAll("article").forEach(card => clearTimeout(card.seenTimer));
     if (document.visibilityState === "visible" && !$("board").hidden) render();
@@ -267,6 +272,7 @@ if (typeof document !== "undefined") {
     }
   };
   $("logout").onclick = async () => {
+    updates.stop();
     await api("/logout", { method: "POST" });
     clearLetterDrafts();
     observer?.disconnect();

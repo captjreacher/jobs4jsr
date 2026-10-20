@@ -1,2 +1,4 @@
 SUPABASE_PUBLISHABLE_KEY=replace-with-project-publishable-key
 JESS_USER_ID=replace-with-authorised-owner-uuid
+# Enable only after the queue migration and Windows poller are approved/verified.
+MANUAL_UPDATES_ENABLED=false

@@ -86,6 +86,7 @@ http
         "/": "index.html",
         "/app.js": "app.js",
         "/catalogue.js": "catalogue.js",
+        "/updates.js": "updates.js",
         "/cover-letter.js": "cover-letter.js",
         "/favicon.svg": "favicon.svg",
         "/style.css": "style.css",

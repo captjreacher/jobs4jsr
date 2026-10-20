@@ -3,7 +3,7 @@ import os,json,hashlib
 from datetime import datetime,timezone
 from pathlib import Path
 import requests
-from . import database
+from . import database, coordinator
 PUBLIC_FIELDS=('employer','title','source','distance','location','job_type','match','why','found','posted','url','vacancy_state','verification_warning','is_new','recommended','changed_at','last_verified','salary','hours','legacy_application_status','alternate_sources','vacancy_id')
 
 def configured():return bool(os.environ.get('JOBS4JSR_SUPABASE_URL'))
@@ -21,7 +21,11 @@ def load_env(root):
 def projection(job,owner):
  return {'id':job['stable_id'],'owner_id':owner,'vacancy':{k:job.get(k) for k in PUBLIC_FIELDS}}
 
-def publish(c,root,session=None):
+def publish(c,root,session=None,update_control=None,summary=None):
+ with coordinator.execution_lock(root):
+  return _publish(c,root,session,update_control,summary)
+
+def _publish(c,root,session=None,update_control=None,summary=None):
  env=os.environ
  required=('JOBS4JSR_SUPABASE_URL','JOBS4JSR_PUBLISHABLE_KEY','JOBS4JSR_SYNC_EMAIL','JOBS4JSR_SYNC_PASSWORD','JOBS4JSR_OWNER_ID')
  if not all(env.get(k) for k in required):raise ValueError('Sync is not configured: see docs/hosted-board.md. No credentials inferred.')
@@ -32,6 +36,14 @@ def publish(c,root,session=None):
  try:
   r=session.post(base+'/auth/v1/token?grant_type=password',json={'email':env[required[2]],'password':env[required[3]]},timeout=30);r.raise_for_status()
   token=r.json()['access_token'];session.headers['Authorization']='Bearer '+token
+  if update_control is not None:
+   if env.get('JOBS4JSR_LETTER_UPLOAD_APPROVED')=='true':raise ValueError('Manual update publication does not enable letter uploads')
+   payload={'jobs':[projection(j,env[required[4]]) for j in database.jobs(c) if j.get('stable_id')],
+    'runs':[dict(id=i,started=s,completed=f,diagnostics=json.loads(d or '[]')) for i,s,f,d in c.execute('SELECT id,started,completed,diagnostics FROM runs')],
+    'checks':[dict(run_id=i,source=s,payload=json.loads(p)) for i,s,p in c.execute('SELECT run_id,source,payload FROM source_checks')], 'summary':summary}
+   update_control.publish(payload)
+   c.execute('INSERT INTO sync_runs(attempted,status) VALUES(?,?)',(attempted,'success'));c.commit()
+   return
   for job in database.jobs(c):
    if not job.get('stable_id'):continue
    row=projection(job,env[required[4]])

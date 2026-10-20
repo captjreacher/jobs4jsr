@@ -176,6 +176,11 @@ nav {
   gap: 18px;
 }
 .catalogue-section { margin: 0 0 18px; border-top: 1px solid #e3deeb; }
+.catalogue-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
+.catalogue-toolbar h2 { margin-bottom: 8px; }
+.catalogue-toolbar button { min-height: 48px; flex-shrink: 0; }
+#update-status { overflow-wrap: anywhere; }
+@media (max-width: 400px) { .catalogue-toolbar { align-items: flex-start; flex-wrap: wrap; } }
 .catalogue-section summary {
   display: flex;
   align-items: center;
