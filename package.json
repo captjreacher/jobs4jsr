@@ -1,9 +1,9 @@
 {
   "name": "jobs4jsr",
   "version": "1.0.0",
-  "description": "Local hospitality vacancy discovery, candidate evidence review, Word letters and offline reports. Python 3.11+ (verified here with Python 3.14), SQLite and Windows Task Scheduler. No subscription or AI API is needed. No application is submitted and no email is sent.",
+  "description": "Local hospitality vacancy discovery, candidate evidence review, Word letters, offline reports and a weekday evening email digest. Python 3.11+ (verified here with Python 3.14), SQLite and Windows Task Scheduler. No subscription or AI API is needed. No application is submitted, and the digest is the only message ever sent.",
   "scripts": {
-    "test": "node --test web/tests/*.test.mjs",
+    "test": "node --test --test-concurrency=1 web/tests/*.test.mjs",
     "test:ui": "node scripts/test-board-ui.mjs",
     "test:updates:ui": "node scripts/test-update-ui.mjs",
     "preview": "node scripts/preview.mjs",

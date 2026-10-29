@@ -2,12 +2,12 @@
 import html
 import re
 import time
-import urllib.robotparser
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from urllib.parse import urljoin, urlsplit
 from zoneinfo import ZoneInfo
 import requests
+from .robots import Rules, UnsupportedRule
 
 AGENT = 'Jobs4JSR/0.2 (local personal vacancy research)'
 
@@ -23,6 +23,27 @@ class Client:
         self.rules = {}
         self.delay = max(1, delay)
 
+    def rules_for(self, origin):
+        """Fetch and parse one origin's robots.txt. A missing file allows all."""
+        if origin not in self.rules:
+            r = self.session.get(origin + '/robots.txt', timeout=25,
+                                 headers={'User-Agent': AGENT}, allow_redirects=False)
+            if r.status_code not in (200, 404):
+                raise RuntimeError('Robots unavailable: ' + origin)
+            try:
+                self.rules[origin] = Rules.parse(r.text if r.status_code == 200 else '', AGENT)
+            except UnsupportedRule as exc:
+                # Fail closed: an unreadable rule is never treated as permission.
+                raise RuntimeError('Robots rule unusable at ' + origin + ' (' + str(exc) + ')') from exc
+        return self.rules[origin]
+
+    def allowed(self, url):
+        """True when robots.txt permits this URL. Used to skip, not to bypass."""
+        u = urlsplit(url)
+        if u.scheme not in ('http', 'https') or not u.netloc:
+            return False
+        return self.rules_for(u.scheme + '://' + u.netloc).can_fetch(url)
+
     def get(self, url):
         # Every redirect is checked BEFORE following it, including a new origin.
         for _ in range(6):
@@ -30,20 +51,12 @@ class Client:
             if u.scheme not in ('http', 'https') or not u.netloc:
                 raise ValueError('Invalid public URL')
             origin = u.scheme + '://' + u.netloc
-            if origin not in self.rules:
-                r = self.session.get(origin + '/robots.txt', timeout=25,
-                                     headers={'User-Agent': AGENT}, allow_redirects=False)
-                if r.status_code not in (200, 404):
-                    raise RuntimeError('Robots unavailable: ' + origin)
-                rp = urllib.robotparser.RobotFileParser()
-                rp.parse(r.text.splitlines() if r.status_code == 200 else [])
-                self.rules[origin] = rp
-            rp = self.rules[origin]
-            if not rp.can_fetch(AGENT, url):
+            rules = self.rules_for(origin)
+            if not rules.can_fetch(url):
                 raise RuntimeError('Robots disallows ' + url)
-            rate = rp.request_rate(AGENT)
-            rate_delay = rate.seconds / rate.requests if rate and rate.requests else 0
-            time.sleep(max(self.delay, rp.crawl_delay(AGENT) or 0, rate_delay))
+            rate = rules.request_rate()
+            rate_delay = rate[1] / rate[0] if rate and rate[0] else 0
+            time.sleep(max(self.delay, rules.crawl_delay() or 0, rate_delay))
             r = self.session.get(url, timeout=25, headers={'User-Agent': AGENT}, allow_redirects=False)
             if r.status_code in (301, 302, 303, 307, 308):
                 url = urljoin(url, r.headers['Location'])

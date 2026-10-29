@@ -1,13 +1,29 @@
 """Local command-line entry point. Manual searches never consume scheduler slots."""
 import argparse
 import json
+import os
 import re
+import socket
 import sys
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
-from . import candidate, database, discovery, scoring, deduplication, letters, reporting, scheduler, catalogue, sync, coordinator
+from . import candidate, database, discovery, scoring, deduplication, letters, reporting, scheduler, catalogue, sync, coordinator, leads, emailer
+
+# A missed evening is recoverable, but only within a bounded window: the digest
+# covers today plus at most this many earlier weekdays.
+CATCH_UP_DAYS = 2
+# Leads are listed while they were seen on the boards within this many days.
+# Older rows stay in the database for audit; they are simply not current.
+LEAD_RETENTION_DAYS = 21
+
+
+def _setting(settings, name, default):
+    try:
+        return int(settings.get('digest', {}).get(name, default))
+    except (TypeError, ValueError):
+        return default
 
 
 def parser_for():
@@ -23,6 +39,9 @@ def parser_for():
     p = sub.add_parser('report'); p.add_argument('--run')
     sub.add_parser('list')
     sub.add_parser('sources')
+    sub.add_parser('leads')
+    sub.add_parser('digest-status')
+    sub.add_parser('email')
     p = sub.add_parser('status'); p.add_argument('id', type=int); p.add_argument('status', choices=database.STATUSES)
     return parser
 
@@ -60,14 +79,24 @@ def execute(a, update_control=None):
             sync.publish(c,root); return
         if a.command == 'sources':
             print(json.dumps(database.source_checks(c), indent=2, ensure_ascii=True)); return
+        if a.command == 'leads':
+            print(json.dumps(database.leads(c), indent=2, ensure_ascii=True)); return
+        if a.command == 'digest-status':
+            print(json.dumps(database.digest_status(c), indent=2, ensure_ascii=True)); return
         now = datetime.now(ZoneInfo('Pacific/Auckland')); today = now.date().isoformat()
+        if a.command == 'email':
+            digest(c, today, settings); return
+        retention = _setting(settings, 'lead_retention_days', LEAD_RETENTION_DAYS)
+        cutoff = (now.date() - timedelta(days=retention)).isoformat()
         if a.command == 'report':
             rows = database.jobs(c)
             if a.run: rows = [j for j in rows if j.get('run_id') == a.run]
             checks = database.source_checks(c, a.run) if a.run else []
             print(reporting.report(root, today, rows,
-                  ['Historical view; verify advertisements again before applying.'],
-                  a.run or 'history', source_checks=checks)); return
+                  ['Historical view; verify advertisements again before applying.',
+                   f'Leads last seen before {cutoff} are kept for audit and are not listed.'],
+                  a.run or 'history', source_checks=checks,
+                  leads=database.leads(c, since=cutoff))); return
         profile = json.loads((root / 'data/private/jess_profile.json').read_text(encoding='utf-8'))
         if a.command == 'letters':
             j=next((j for j in database.jobs(c) if j['id']==a.job_id),None)
@@ -113,8 +142,17 @@ def execute(a, update_control=None):
             checks[row['source']].last_successful_check = row['last_successful_check']
         if hasattr(notes, 'refresh'): notes.refresh()
         notes.append(f"Uncapped catalogue: {result['new']} new, {result['duplicates']} duplicates, {result['changed']} changed. Top three NEW jobs are recommendations; all qualifying jobs are retained.")
+        board_leads = []
+        if settings.get('lead_sources'):
+            found_leads, lead_messages = leads.discover(settings)
+            board_leads = database.save_leads(c, found_leads, run_id, now.isoformat())
+            notes.append(f"Unverified board leads: {len(found_leads)} found, {len(board_leads)} new. "
+                         'Leads carry no verified coordinate or application action, so they are not scored or lettered.')
+            notes.append(f'Only leads seen on or after {cutoff} are listed; earlier rows are kept for audit.')
+            notes.extend(lead_messages)
         report_rows = result['catalogue']
-        output = reporting.report(root, today, report_rows, notes, run_id, source_checks=check_rows)
+        output = reporting.report(root, today, report_rows, notes, run_id, source_checks=check_rows,
+                                  leads=database.leads(c, since=cutoff))
         failed = any(check.errors for check in checks.values()) or any(x.startswith('SOURCE FAILED') for x in notes)
         c.execute('UPDATE runs SET completed=?,diagnostics=? WHERE id=?',
                   (None if failed else datetime.now(ZoneInfo('Pacific/Auckland')).isoformat(), json.dumps(list(notes)), run_id))
@@ -132,5 +170,82 @@ def execute(a, update_control=None):
             sys.exit(2)
     finally:
         c.close()
+
+def _as_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def _digest_days(today, catch_up):
+    """Today plus up to `catch_up` earlier weekdays, newest first."""
+    days, day = [today], today
+    while len(days) < catch_up + 1:
+        day -= timedelta(days=1)
+        if day.weekday() < 5:
+            days.append(day)
+    return days
+
+
+def digest(c, today, settings=None):
+    """Weekday evening digest, with a bounded catch-up for missed weekdays.
+
+    One durable claim per day stops two concurrent runs from sending twice. A
+    claim that is live blocks every other run; a claim left behind by a crash
+    expires, so a later run retries. SMTP cannot acknowledge a message exactly
+    once, so a crash between the server accepting the message and the delivery
+    record being written can produce one duplicate. That limit is documented.
+    """
+    settings = settings or {}
+    today = _as_date(today)
+    catch_up = max(0, _setting(settings, 'catch_up_days', CATCH_UP_DAYS))
+    groups = []
+    for day in reversed(_digest_days(today, catch_up)):
+        key = day.isoformat()
+        if database.digest_sent(c, key):
+            continue
+        jobs = sorted((j for j in database.jobs(c) if j.get('found') == key),
+                      key=lambda j: j.get('match') or 0, reverse=True)
+        found = [lead for lead in database.leads(c) if lead.get('first_seen') == key]
+        if not jobs and not found:
+            database.skip_digest(c, key, datetime.now(ZoneInfo('Pacific/Auckland')).isoformat())
+            continue
+        groups.append({'day': day, 'jobs': jobs, 'leads': found})
+    if not groups:
+        print('No new roles today; no digest email sent.'); return
+    try:
+        emailer.check_configuration()
+    except ValueError as exc:
+        print('DIGEST EMAIL FAILED: ' + str(exc), file=sys.stderr)
+        raise
+    owner = f'{os.getpid()}@{socket.gethostname()}'
+    claim = database.claim_digest(c, today.isoformat(), owner)
+    if claim == 'sent':
+        print('Digest already sent for ' + today.isoformat() + '; nothing further sent.'); return
+    if claim == 'busy':
+        print('Digest for ' + today.isoformat() + ' is already being sent by another run; nothing sent.'); return
+    attempts = database.digest_attempts(c, today.isoformat())
+    if attempts > 1:
+        print(f'Digest claim attempt {attempts} for {today.isoformat()}; an earlier attempt did not record delivery.',
+              file=sys.stderr)
+    subject, text, body = emailer.build(today, groups)
+    try:
+        emailer.send(subject, text, body)
+    except Exception as exc:
+        database.fail_digest(c, today.isoformat(), owner, f'{type(exc).__name__}: {exc}')
+        print(f'DIGEST EMAIL FAILED for {today.isoformat()}: {type(exc).__name__}: {exc}', file=sys.stderr)
+        raise
+    stamp = datetime.now(ZoneInfo('Pacific/Auckland')).isoformat()
+    jobs_total = sum(len(group['jobs']) for group in groups)
+    leads_total = sum(len(group['leads']) for group in groups)
+    database.mark_digest_sent(c, today.isoformat(), owner, stamp, jobs_total, leads_total)
+    for group in groups:
+        key = group['day'].isoformat()
+        if key != today.isoformat():
+            database.record_digest_day(c, key, 'sent', stamp, len(group['jobs']), len(group['leads']))
+    print(f'Digest email sent: {jobs_total} new vacancy(ies), {leads_total} new lead(s).')
+
 
 if __name__ == '__main__': main()
