@@ -15,6 +15,30 @@ Robots rules are fetched at every fresh discovery invocation and checked for eve
 
 Accor's general career site advert paths are allowed, while `/heartists-opportunities`, workflows and some search routes are restricted. The application never accesses those restricted paths. Its separate SmartRecruiters API was rejected by robots during research and is not used. The official [public Posting API documentation](https://developers.smartrecruiters.com/docs/posting-api) was investigated, but documentation did not override the observed robots restriction.
 
+## Restricted job boards and unverified leads
+
+Checked 27 October 2026. These boards publish Auckland hospitality vacancies, but their robots.txt restricts what may be retrieved, so each is used only as far as it permits. Nothing here contributes to the verified catalogue; see the [README](../README.md) section on unverified leads.
+
+| Board | robots.txt finding | What this release does |
+| --- | --- | --- |
+| SEEK NZ (`nz.seek.com`) | `Disallow: */job/` and `Disallow: /api/jobsearch/`; keyword search paths are allowed | Reads permitted Auckland search pages at listing level only. Advert pages are never requested; each lead links to the advert for manual checking. |
+| Indeed NZ | `Disallow: /viewjob`, `/job/` and `/jobs/NZ/`, and the search page returns HTTP 403 to a plain client | No adapter is configured. A saved-search link is offered in the digest instead. |
+| Trade Me | `Allow: /a/jobs/*/listing` and `Allow: /a/jobs/*/auckland/auckland-city` outrank the shorter `Disallow: /a/*listing/` | Reads Auckland City category pages for leads. Advert pages are permitted but carry no street address or coordinate, so they are deliberately not fetched. |
+
+### Robots wildcard matching
+
+These boards express rules with wildcards (`*/job/`, `*?`). Python's `urllib.robotparser` compares a rule as a plain prefix and ignores `*` and `$` entirely, so it reported every one of these paths as allowed: the previous "honours robots.txt" guarantee was not true in practice, and a SEEK advert page would have been fetched.
+
+`jobs4jsr.robots` implements the matching the directives require: `*` matches any run of characters, a trailing `$` anchors the end, the longest matching pattern wins, `Allow` wins a tie, an empty value is a no-op, and user-agent groups are selected by the most specific matching token.
+
+Matching does not use a regular expression at all. A wildcard rule is scanned with the standard greedy two-pointer algorithm, whose cost is bounded by pattern length × path length, so no rule can backtrack exponentially. Runs of consecutive `*` are still collapsed because they are equivalent to one; Trade Me's robots.txt contains a rule with roughly 180 of them, which hung the earlier version once each `*` became its own `.*`. Patterns are also length- and wildcard-limited, and a rule outside those limits raises rather than being guessed at, so that origin fails closed.
+
+## Lead integrity
+
+Leads are stored once per board and advert ID (the `board_leads` primary key), and a repeated card in one run is stored once. A SEEK card with no advert ID is skipped: it has no stable link and no way to be deduplicated, so storing it would add an unopenable duplicate on every run.
+
+Every sighting updates `last_seen`. A lead is listed in reports and digests only while it has been seen within the retention window (`digest.lead_retention_days`, 21 by default); older rows remain in the database for audit and are no longer presented as current. Leads still never receive a distance, a score, a letter or a catalogue entry.
+
 ## Researched but excluded
 
 - [Savor careers](https://savor.co.nz/careers/vacancies): public employer page uses JobAdder widgets. The widget host disallows automated retrieval; no widget request was made after denial and no stale search snippet became a recommendation.

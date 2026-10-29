@@ -131,6 +131,34 @@
       ]
     }
   ],
+  "lead_sources": [
+    {
+      "name": "Trade Me jobs",
+      "adapter": "trademe_leads",
+      "enabled": true,
+      "note": "Reads only the public Auckland City category listing pages that Trade Me's robots.txt allows. Individual advert pages are permitted by robots.txt but are deliberately not fetched: they carry no workplace coordinate, so a listing could never satisfy this project's verified-location rule.",
+      "pages": [
+        "https://www.trademe.co.nz/a/jobs/hospitality-tourism/waiting-staff/auckland/auckland-city",
+        "https://www.trademe.co.nz/a/jobs/hospitality-tourism/reception-front-desk/auckland/auckland-city",
+        "https://www.trademe.co.nz/a/jobs/hospitality-tourism/bar-staff-baristas/auckland/auckland-city"
+      ]
+    },
+    {
+      "name": "SEEK NZ",
+      "adapter": "seek_leads",
+      "enabled": true,
+      "note": "Reads only Auckland search pages. SEEK's robots.txt disallows */job/, so no advert page is ever requested and individual adverts are linked for manual checking only. Indeed NZ is not configured: its search pages return HTTP 403 to a plain client.",
+      "pages": [
+        "https://nz.seek.com/waiter-jobs-in-hospitality-tourism/in-All-Auckland",
+        "https://nz.seek.com/jobs-in-hospitality-tourism/in-All-Auckland"
+      ]
+    }
+  ],
+  "digest": {
+    "note": "Weekday evening digest. Credentials live only in the ignored private .env file; see .env.example.",
+    "catch_up_days": 2,
+    "lead_retention_days": 21
+  },
   "venues": {
     "The Lula Inn": {
       "location": "Viaduct Harbour",

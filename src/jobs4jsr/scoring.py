@@ -4,7 +4,7 @@ def target_role(title):
     text = re.sub(r'\s+', ' ', title.lower().replace('-', ' '))
     if re.search(r'\b(engineer|developer|technician|network|database|software|sales)\b', text):
         return False
-    return bool(re.search(r'\b(waitress|waiter|waiting staff|restaurant server|server|front of house|foh|'
+    return bool(re.search(r'\b(waitress|waiter|waitstaff|wait staff|waiting staff|restaurant server|server|front of house|foh|'
                           r'food (?:and|&) beverage attendant|f&b attendant|host|hostess|'
                           r'hospitality (?:team member|attendant|assistant)|guest services? agent|'
                           r'guest service|cafe (?:all rounder|assistant|team member)|café assistant|floor staff)\b', text))

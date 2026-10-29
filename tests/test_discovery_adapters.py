@@ -133,13 +133,16 @@ class AdapterTests(unittest.TestCase):
         self.assertIsNotNone(notes.checks[1].last_successful_check)
 
     def test_all_requested_role_names_and_required_experience(self):
-        for title in ('Waitress', 'Restaurant Server', 'Front-of-House', 'FOH', 'Food & Beverage Attendant',
+        for title in ('Waitress', 'Waiter', 'Waitstaff', 'Wait Staff', 'Restaurant Server', 'Front-of-House',
+                      'FOH', 'Food & Beverage Attendant',
                       'Food and Beverage Attendant', 'Hospitality Team Member', 'Cafe Assistant'):
             with self.subTest(title=title): self.assertTrue(scoring.target_role(title))
         j = {'title': 'Experienced Waiter', 'description': 'Waiting experience essential', 'distance': 1}
         self.assertIsNone(scoring.score(j, {'skills': ['customer service']}))
         self.assertFalse(scoring.target_role('Server Engineer'))
         self.assertFalse(scoring.target_role('Hospitality Sales Executive'))
+        self.assertFalse(scoring.target_role('Sous Chef'))
+        self.assertFalse(scoring.target_role('Kitchen Hand'))
 
     def test_brand_mention_cannot_override_non_auckland_address(self):
         item = posting(jobLocation={'address': {'addressLocality': 'Queenstown'}})
